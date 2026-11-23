@@ -29,6 +29,36 @@
 @media(max-width:1000px){.dp-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.dp-controls,.dp-comparison{grid-template-columns:1fr}.dp-stat strong,.dp-comparison strong{font-size:16px}.dp-target{padding:9px}}
 
+
+.dec-lede,.dec-dashboard{background:#183046;border:1px solid #386080;padding:16px;border-radius:13px;line-height:1.55}
+.dec-dashboard{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.dec-dashboard>div{display:grid;gap:5px}
+.dec-dashboard small,.dec-result small{color:#b7c9db}
+.dec-dashboard strong{font-size:25px;font-weight:800}
+.dec-dashboard strong span{font-size:14px;font-weight:500;color:#c1cfe0}
+.dec-dashboard button{background:#6073df;border-color:#7484e6}
+#decForecast{display:grid;gap:14px}
+.dec-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.dec-stat{padding:15px;border:1px solid #374b65;border-radius:12px;background:#111c2b}
+.dec-stat small{color:#b5c3d8;display:block;min-height:34px;font-size:12px}
+.dec-stat strong{font-size:20px;display:block;overflow-wrap:anywhere;margin-top:7px}
+.dec-red{color:#ffadb5!important}.dec-green{color:#92e6c8}
+.dec-result{background:#13332f;border:1px solid #31785e;border-radius:13px;padding:18px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.dec-result>div{display:grid;gap:7px}.dec-result strong{font-size:clamp(25px,3vw,34px)}.dec-result p{margin:0;color:#c3e1d5;font-size:13px}
+.dec-result span{font-size:13px;color:#c3e1d5}.dec-result span b{font-size:19px;color:#e0faee;display:block}
+.dec-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.dec-warnings{background:#3c2c26;border:1px solid #a06a42;color:#ffe7c4;border-radius:12px;padding:14px 18px;line-height:1.55}
+.dec-warnings ul{padding-left:22px;margin:7px 0}
+.dec-chart{overflow-x:auto;background:#0f1928;border:1px solid #3c536f;border-radius:12px;padding:9px}
+.dec-event-list{border:1px solid #344761;border-radius:12px;padding:4px 15px}
+.dec-event{display:grid;grid-template-columns:74px minmax(0,1fr) auto;align-items:center;gap:10px;border-bottom:1px solid #324159;padding:10px 0}
+.dec-event:last-child{border:0}
+.dec-event>span{font-size:13px;color:#c1ccdf}
+.dec-event div{min-width:0}.dec-event b{display:block;overflow-wrap:anywhere}.dec-event small{color:#b2c1d7;display:block;margin-top:3px}
+.dec-event strong{white-space:nowrap}
+@media(max-width:930px){.dec-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.dec-inputs{grid-template-columns:1fr}.dec-stats{gap:8px}.dec-stat{padding:11px}.dec-stat strong{font-size:16px}.dec-event{grid-template-columns:50px minmax(0,1fr) auto;gap:7px}.dec-event strong{font-size:13px}}
+
 </style></head><body>
 <div id="authScreen" class="auth-wrap"><div class="auth-card"><h1>Household Budget</h1><h2>Private access</h2><p id="authNote" class="auth-note">Sign in to see your private budget. The website does not publish card balances or transactions.</p>
 <div id="loginFields"><form id="authForm" novalidate><label class="field">Email<input id="loginEmail" type="email" autocomplete="email" required></label><label class="field">Password<input id="loginPassword" type="password" autocomplete="current-password" minlength="12" required></label><button id="signin" class="primary" type="button">Sign in</button><button id="signup" type="button">Create household login</button></form></div>
@@ -191,6 +221,158 @@ function bind(state){
 window.DebtPlanner={render,bind,simulate,cards};
 })();
 </script><script>
+(()=>{
+'use strict';
+const MON='2026-12',END='2026-12-31',DAY=86400000;
+const cash=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format((Number(n)||0)/100);
+const escaped=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const amt=n=>Math.round(Math.max(0,Number(n)||0)*100);
+const dt=s=>Date.parse(String(s)+'T00:00:00Z');
+const good=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))&&!Number.isNaN(dt(s));
+const inDec=s=>good(s)&&s.slice(0,7)===MON;
+const iso=t=>new Date(t).toISOString().slice(0,10);
+const dayInMonth=d=>{const day=Math.min(31,Math.max(1,Number(d)||1));return MON+'-'+String(day).padStart(2,'0');};
+const fmt=s=>new Date(dt(s)).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+const ui={opening:null,unlisted:0};
+function datesFor(item){
+ const d=item.date,f=item.frequency;
+ if(!good(d))return [];
+ if(f==='One-time'||!f)return inDec(d)?[d]:[];
+ if(f==='Monthly'){
+  const [y,m,day]=d.split('-').map(Number);
+  return (2026-y)*12+(12-m)>=0?[dayInMonth(day)]:[];
+ }
+ if(f==='Weekly'||f==='Biweekly'){
+  const period=(f==='Weekly'?7:14)*DAY;
+  const anchor=dt(d),start=dt(MON+'-01'),end=dt(END);
+  let n=Math.max(0,Math.ceil((start-anchor)/period));
+  const out=[];
+  for(let i=0;i<6;i++){const at=anchor+(n+i)*period;if(at>end)break;if(at>=start)out.push(iso(at));}
+  return out;
+ }
+ if(f==='Twice monthly'){
+  const [y,m,day]=d.split('-').map(Number);
+  if((2026-y)*12+(12-m)<0)return [];
+  const first=day<=15?day:Math.max(1,day-15),second=Math.min(28,first+15);
+  return [...new Set([dayInMonth(first),dayInMonth(second)])].filter(x=>dt(x)>=dt(d));
+ }
+ return [];
+}
+function scheduled(items,kind,warnings){
+ const rows=[],entries=Array.isArray(items)?items:[];
+ const roots=entries.filter(x=>!x.parent),children=entries.filter(x=>x.parent);
+ for(const base of roots){
+  if(kind==='bill'&&base.budgetOnly)continue;
+  if(!amt(base.amount))continue;
+  const title=String(base.name||base.member||'Unnamed');
+  if(!good(base.date)){
+   if(kind==='bill'&&base.frequency!=='One-time'){
+    rows.push({date:null,kind,title,amount:-amt(base.amount),id:base.id});
+    warnings.push(title+' has no due date. Its cost is included, but the chart reserves it at month-end.');
+   }else warnings.push(title+' has no payment date and cannot be included reliably.');
+   continue;
+  }
+  for(const date of datesFor(base)){
+   const source=children.find(ch=>ch.parent===base.id&&ch.date===date)||base;
+   const value=amt(source.amount);
+   if(value)rows.push({date,kind,title:String(source.name||source.member||title),amount:kind==='income'?value:-value,id:source.id});
+  }
+ }
+ for(const item of children){
+  if(kind==='bill'&&item.budgetOnly)continue;
+  if(!inDec(item.date))continue;
+  const base=roots.find(p=>p.id===item.parent);
+  if(base&&datesFor(base).includes(item.date))continue;
+  rows.push({date:item.date,kind,title:String(item.name||item.member||'Adjusted entry'),amount:(kind==='income'?1:-1)*amt(item.amount),id:item.id});
+  warnings.push('A separately dated generated '+kind+' entry was included; check for duplicate schedules.');
+ }
+ return rows.filter(e=>e.amount!==0);
+}
+function forecast(state,openingArg=ui.opening,unlistedArg=ui.unlisted){
+ const warn=[],rows=[];
+ rows.push(...scheduled(state.paychecks,'income',warn));
+ rows.push(...scheduled(state.bills,'bill',warn));
+ for(const card of state.debts||[]){
+  if(!(Number(card.balance)>0)||!amt(card.minimum))continue;
+  let day=null;
+  if(good(card.due))day=Number(card.due.slice(-2));
+  else if(Number(card.dueDay)>=1&&Number(card.dueDay)<=31){
+   day=Number(card.dueDay);
+   warn.push(card.name+' has no full due date; used its recorded day of month.');
+  }else warn.push(card.name+' has no due date; its minimum was counted as undated.');
+  rows.push({date:day?dayInMonth(day):null,kind:'minimum',title:String(card.name||'Debt')+' minimum',amount:-amt(card.minimum),id:card.id});
+ }
+ const pays=state.paychecks||[];
+ for(const extra of state.extras||[]){
+  const p=pays.find(p=>p.id===extra.pay);
+  const when=good(extra.date)?extra.date:(p&&good(p.date)?p.date:null);
+  if(inDec(when))rows.push({date:when,kind:'extra',title:'Extra debt payment',amount:-amt(extra.amount),id:extra.id});
+  else if(amt(extra.amount))warn.push('An extra debt payment has no December date and is not counted.');
+ }
+ const sourceIds=new Set([...(state.bills||[]),...(state.debts||[]),...(state.extras||[])].map(e=>e.id));
+ for(const transaction of state.transactions||[]){
+  if(inDec(transaction.date)&&!sourceIds.has(transaction.source)&&['expense','debt'].includes(transaction.kind))
+   rows.push({date:transaction.date,kind:'other',title:String(transaction.name||'Other expense'),amount:-amt(transaction.amount),id:transaction.id});
+ }
+ const sum=kind=>rows.filter(e=>e.kind===kind).reduce((s,e)=>s+e.amount,0);
+ const income=sum('income'),bills=-sum('bill'),minimums=-sum('minimum'),extras=-sum('extra'),other=-sum('other');
+ const unlisted=amt(unlistedArg),opening=Math.round((Number(openingArg===null?state.opening:openingArg)||0)*100);
+ const net=income-bills-minimums-extras-other-unlisted,closing=opening+net;
+ const undated=rows.filter(e=>!e.date);
+ const dated=rows.filter(e=>e.date);
+ for(const e of undated)dated.push({...e,date:END,kind:'reserved',title:e.title+' (due date missing)'});
+ if(unlisted)dated.push({date:END,kind:'reserved',title:'What-if unlisted spending',amount:-unlisted});
+ dated.sort((a,b)=>a.date.localeCompare(b.date)||((a.kind==='reserved')-(b.kind==='reserved'))||b.amount-a.amount);
+ let running=opening;const days=[],events=[];
+ for(let d=1;d<=31;d++){
+  const date=dayInMonth(d);
+  for(const e of dated.filter(x=>x.date===date)){running+=e.amount;events.push({...e,balance:running});}
+  days.push({date,balance:running});
+ }
+ if(running!==closing)warn.push('Forecast mismatch: the summary and chart differ.');
+ return {income,bills,minimums,extras,other,unlisted,net,opening,closing,undated,events,days,warnings:[...new Set(warn)]};
+}
+function graph(f){
+ const W=920,H=290,L=85,R=22,T=21,B=43,values=f.days.map(x=>x.balance/100).concat([0,f.opening/100]);
+ let lo=Math.min(...values),hi=Math.max(...values),padding=Math.max(100,(hi-lo)*0.12);lo-=padding;hi+=padding;
+ const x=day=>L+(W-L-R)*(day-1)/30,y=val=>T+(H-T-B)*(hi-val)/(hi-lo);
+ const path=f.days.map((p,i)=>(i?'L':'M')+x(i+1).toFixed(1)+','+y(p.balance/100).toFixed(1)).join(' ');
+ const grid=[0,.25,.5,.75,1].map(frac=>{const v=lo+frac*(hi-lo),Y=y(v).toFixed(1);return '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y+'" y2="'+Y+'" stroke="#40516e" stroke-dasharray="3 6"/><text x="'+(L-11)+'" y="'+(Number(Y)+4)+'" text-anchor="end" fill="#ccd7e8" font-size="12">'+escaped(new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',notation:'compact',maximumFractionDigits:1}).format(v))+'</text>'}).join('');
+ const labels=[1,7,14,21,28,31].map(d=>'<text x="'+x(d).toFixed(1)+'" y="'+(H-11)+'" text-anchor="middle" fill="#ccd7e8" font-size="13">Dec '+d+'</text>').join('');
+ const zero=lo<0&&hi>0?'<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(0)+'" y2="'+y(0)+'" stroke="#f59e9e" stroke-dasharray="5 5"/>':'';
+ return '<div class="dec-chart"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="December cash balance by day, with undated expenses reserved on December 31 only for display" style="width:100%;min-width:560px;height:auto">'+grid+zero+'<path d="'+path+'" fill="none" stroke="#8ad5f5" stroke-width="4" stroke-linejoin="round"/>'+labels+'</svg></div>';
+}
+function render(state){
+ const f=forecast(state);
+ let html='<section id="decForecast"><p class="dec-lede">Forecast based on <strong>your household’s live, signed-in budget data</strong>. No changes here will schedule a payment or alter card balances.</p>';
+ const items=[['December paycheck income',f.income],['Bills, including one-time',-f.bills],['Credit card minimums',-f.minimums],['Net December change',f.net]];
+ html+='<div class="dec-stats">'+items.map(([label,value])=>'<div class="dec-stat"><small>'+escaped(label)+'</small><strong class="'+(value<0?'dec-red':'')+'">'+(value<0?'−':'')+cash(Math.abs(value))+'</strong></div>').join('')+'</div>';
+ html+='<div class="dec-result"><div><small>Conditional December 31 cash balance</small><strong>'+cash(f.closing)+'</strong><p>Assuming '+cash(f.opening)+' is the cash available <strong>December 1</strong>.</p></div><span>December surplus after listed commitments <b>'+cash(f.net)+'</b></span></div>';
+ html+='<div class="dec-inputs"><label class="field">Starting cash on December 1 ($)<input id="decOpening" type="number" step="0.01" value="'+(ui.opening===null?Number(state.opening)||0:ui.opening)+'"></label><label class="field">Additional December spending ($)<input id="decUnlisted" type="number" min="0" step="10" value="'+ui.unlisted+'"></label></div>';
+ html+='<p class="hint">What-if inputs affect only this forecast. Enter your actual December 1 balance for the best closing-balance estimate. No data is saved or modified.</p>';
+ if(f.warnings.length)html+='<div class="dec-warnings"><strong>Items to verify</strong><ul>'+f.warnings.map(w=>'<li>'+escaped(w)+'</li>').join('')+'</ul></div>';
+ html+='<h3>Cash-flow chart — December 1–31</h3><p class="hint">Undated expenses are deducted on December 31 as an accounting reserve, <strong>not a predicted payment date</strong>. Earlier balances may be overstated until those dates are entered.</p>'+graph(f);
+ html+='<h3>December paychecks and payments</h3><div class="dec-event-list">'+f.events.map(e=>'<div class="dec-event"><span>'+fmt(e.date)+'</span><div><b>'+escaped(e.title)+'</b><small>'+escaped(e.kind==='income'?'Paycheck':e.kind==='minimum'?'Credit-card minimum':e.kind==='reserved'?'Undated reserve / what-if spending':e.kind==='bill'?'Bill':'Other payment')+'</small></div><strong class="'+(e.amount<0?'dec-red':'dec-green')+'">'+(e.amount>=0?'+':'−')+cash(Math.abs(e.amount))+'</strong></div>').join('')+'</div>';
+ html+='<p class="hint">Assumes expected paychecks arrive on schedule, recurring bills repeat as entered, required debt minimums are paid, and no additional unrecorded charges occur. Does not reconcile transactions to bank statements. The app’s starting cash is not date-stamped, so the December 31 cash figure depends on your December 1 starting amount.</p></section>';
+ return html;
+}
+function bind(state){
+ const root=document.querySelector('#decForecast');if(!root)return;
+ const apply=()=>{
+  ui.opening=Number(root.querySelector('#decOpening').value)||0;
+  ui.unlisted=Math.max(0,Number(root.querySelector('#decUnlisted').value)||0);
+  root.outerHTML=render(state);bind(state);
+ };
+ root.querySelector('#decOpening').addEventListener('change',apply);
+ root.querySelector('#decUnlisted').addEventListener('change',apply);
+}
+function dashboard(state){
+ const f=forecast(state);
+ return '<div class="dec-dashboard"><div><small>December 2026 cash-flow forecast</small><strong>'+cash(f.net)+' <span>estimated surplus</span></strong><small>Conditional Dec 31 cash: '+cash(f.closing)+' if starting cash is available Dec 1</small></div><button type="button" data-tab="December Forecast">View December forecast</button></div>';
+}
+window.DecemberForecast={forecast,render,bind,dashboard,datesFor};
+})();
+</script><script>
 (()=>{'use strict';
 // Budget data is loaded only after verified Supabase authentication and household membership.
 
@@ -205,7 +387,7 @@ const pretty=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d||''))return 'No date';const [y
 const seed=()=>({opening:0,people:['Member 1','Member 2'],paychecks:[],bills:[],debts:[],extras:[],transactions:[]});
 const normalize=o=>{const s=seed();if(!o||typeof o!=='object'||Array.isArray(o))return s;for(const k of ['people','paychecks','bills','debts','extras','transactions'])if(Array.isArray(o[k]))s[k]=o[k].filter(item=>k==='people'?typeof item==='string'&&item.trim().length>0:!!item&&typeof item==='object'&&!Array.isArray(item));if(!s.people.length)s.people=['Member 1','Member 2'];if(Number.isFinite(Number(o.opening)))s.opening=num(o.opening);return s};
 let storageWorking=true,state=seed(),revision=0,householdId=null,householdRole=null,saveBlocked=false,savePending=0,saveQueue=Promise.resolve();
-let tab='Dashboard',editing=null,pendingAction=null,paycheckNotice=null;const tabs=['Dashboard','Paychecks','Bills','Debt & Credit','Debt Payoff','Transactions','Bank Accounts','Settings'];
+let tab='Dashboard',editing=null,pendingAction=null,paycheckNotice=null;const tabs=['Dashboard','December Forecast','Paychecks','Bills','Debt & Credit','Debt Payoff','Transactions','Bank Accounts','Settings'];
 const $=s=>document.querySelector(s);
 function save(){
  if(!window.budgetDB||!householdId||saveBlocked){message('Budget cannot be saved. Export a backup and use Reload latest after resolving the connection.',true);return false}
@@ -320,6 +502,7 @@ function render(){const confirm=$('#confirmation');confirm.innerHTML=pendingActi
  $('#tabs').innerHTML=tabs.map(t=>`<button data-tab="${esc(t)}" class="${t===tab?'active':''}">${esc(t)}</button>`).join('');
  let html=`<h2>${esc(tab)}</h2>`;
  if(tab==='Dashboard'){
+  html+=window.DecemberForecast.dashboard(state);
   if(!state.bills.length&&!state.debts.length&&!state.paychecks.length){html+='<div class="notice"><strong>Welcome to your online budget.</strong> Your private household budget is empty. Restore your historical backup using Import backup, or add paychecks, bills and debts. Data is saved securely in the household database.</div>'}
   else {const undatedBills=state.bills.filter(b=>!b.date&&!b.budgetOnly).length,undatedDebts=state.debts.filter(d=>!d.due).length;if(undatedBills||undatedDebts)html+='<div class="notice">'+undatedBills+' bill(s) and '+undatedDebts+' debt account(s) have no upcoming payment date, so they are excluded from future cash-flow totals until you provide dates.</div>'}
 
@@ -332,6 +515,7 @@ function render(){const confirm=$('#confirmation');confirm.innerHTML=pendingActi
   html+=flow.next30.length?flow.next30.map(e=>row(e.name,`${pretty(e.date)} · ${esc(e.kind)} · Balance after: <span class="${e.balance<0?'bad':'ok'}">${money(e.balance)}</span>`,Math.abs(e.amount),`<span class="pill">${e.amount>=0?'Income':'Outflow'}</span>`)).join(''):'<div class="empty">No forecasted activity in the next 30 days.</div>';
   html+=`<p class="hint">Estimated balance today: ${money(flow.now)}. This is based on your starting cash, entered paychecks, recorded transactions, and unpaid due dates; it is not your bank balance. The projected balance includes all entered future dates, not only the next 30 days. Funding warnings do not prevent adding or manually assigning an expense.</p>`;
  }
+if(tab==='December Forecast'){html+=window.DecemberForecast.render(state)}
 if(tab==='Paychecks'){html+='<div class="bar"><button id="generate" class="primary">Generate next 3 months</button><span class="hint">Enter an amount, select a date and click Add paycheck. A confirmation or error appears above the form.</span></div>';html+=editingPanel();html+=paycheckForm();if(paycheckNotice)html+=`<div class="notice ${paycheckNotice.error?'error':''}" role="status" aria-live="polite">${esc(paycheckNotice.text)}</div>`;html+='<p class="hint">A confirmation appears under the form after adding. Your paychecks are saved to the private household database and can be shared with authorized members.</p>';const all=[...state.paychecks].sort((a,b)=>String(a?.date||'').localeCompare(String(b?.date||'')));html+=all.map(p=>row(p.member,`${pretty(p.date)} · ${esc(p.frequency||'One-time')}${p.parent?' · Generated':''}`,p.amount,`<button class="compact" data-edit-paycheck="${esc(p.id)}">Edit</button><button class="compact danger-btn" data-remove-pay="${esc(p.id)}">Remove</button>`)).join('')||'<div class="empty">No paychecks yet.</div>'}
 if(tab==='Bills'){html+='<p class="muted">Add your bills and upcoming payment dates. Undated bills are excluded from forecasting. Any imported Credit Cards budget line is for planning only, not a second debt minimum.</p>';html+=editingPanel();html+=frm('bill',field('Bill name','name','text','placeholder="Rent, electricity, internet..."')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Due date','date','date')+select('Repeat','frequency',freqOptions()),'Add bill');html+=state.bills.map(b=>row(b.name,`${b.date?pretty(b.date):'<span class="warn">Due date needed</span>'} · ${b.paid?'<span class="ok">Paid</span>':'Unpaid'} · ${esc(b.frequency||'One-time')}${b.budgetOnly?' · Budget allocation, not a second debt payment':''}`,b.amount,`<button class="compact" data-edit-bill="${esc(b.id)}">Edit bill</button>${b.budgetOnly?'<span class="pill">Reference only</span>':`<label class="inline-label"><input type="checkbox" data-paid-bill="${esc(b.id)}" ${b.paid?'checked':''}>Paid</label>${assignControl(b)}`}<button class="compact danger-btn" data-remove-bill="${esc(b.id)}">Remove</button>`)).join('')||'<div class="empty">No bills yet.</div>'}
 if(tab==='Debt & Credit'){html+='<p class="muted">Track credit cards and loans here. Set a next due date to include each minimum payment in the funding forecast. Missing APRs are not estimated.</p>';html+=editingPanel();html+=frm('debt',field('Account nickname','name')+select('Type','type',['Credit Card','Auto Loan','Personal Loan','Mortgage','Student Loan','Other'].map(v=>[v,v]))+field('Current balance','balance','number','min="0" step="0.01"')+field('Minimum payment','minimum','number','min="0.01" step="0.01"')+field('Next due date','due','date')+field('APR (%)','apr','number','min="0" step="0.01"')+field('Credit limit (0 for loans)','limit','number','min="0" step="0.01"'),'Add debt');html+=state.debts.map(d=>row(d.name,`${esc(d.type)} · ${d.apr==null?'APR not provided':num(d.apr)+'% APR'} · Minimum ${num(d.minimum)>0?money(d.minimum):'<span class="bad">Not entered</span>'} · Due ${d.due?pretty(d.due):d.dueDay?'<span class="warn">Day '+d.dueDay+' · set next date</span>':'<span class="bad">Not entered</span>'}${num(d.limit)>0?' · Limit '+money(d.limit):''}`,d.balance,`<label class="inline-label"><input type="checkbox" data-paid-debt="${esc(d.id)}" ${d.paid?'checked':''}>Minimum paid</label>${assignControl(d)}<button class="compact" data-edit-debt="${esc(d.id)}">Edit details</button><button class="compact danger-btn" data-remove-debt="${esc(d.id)}">Remove</button>`)).join('')||'<div class="empty">No debts yet.</div>';html+='<h3>Schedule an extra payment</h3>';if(state.debts.length&&state.paychecks.length)html+=frm('extra',select('Debt','debt',state.debts.map(d=>[d.id,d.name]))+select('From paycheck','paycheck',state.paychecks.map(p=>[p.id,p.member+' · '+pretty(p.date)]))+field('Extra payment ($)','amount','number','min="0.01" step="0.01"'),'Schedule extra payment');else html+='<p class="hint">Add at least one debt and paycheck first.</p>';html+=state.extras.map(x=>row(state.debts.find(d=>d.id===x.debt)?.name||'Debt',`Extra payment · ${x.paid?'Paid':'Scheduled'}`,x.amount,`<label class="inline-label"><input type="checkbox" data-paid-extra="${esc(x.id)}" ${x.paid?'checked':''}>Paid</label><button class="compact danger-btn" data-remove-extra="${esc(x.id)}">Remove</button>`)).join('');html+='<p class="hint">Account balances and interest rates are entered manually and are not linked to your bank. Debt payments are treated as reductions in principal; this app does not calculate statement interest or provide financial advice.</p>'}
@@ -339,7 +523,7 @@ if(tab==='Debt Payoff'){html+=window.DebtPlanner.render(state)}
 if(tab==='Transactions'){html+=frm('expense',field('Expense description','name')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Transaction date','date','date'),'Add expense');html+=state.transactions.map(x=>row(x.name,`${pretty(x.date)} · ${esc(x.kind)}`,x.amount,`<button class="compact danger-btn" data-remove-transaction="${esc(x.id)}">Remove</button>`)).join('')||'<div class="empty">No transactions recorded.</div>'}
 if(tab==='Bank Accounts')html+='<div class="empty">Checking and savings account management will be added separately. No bank account connection is active.</div>';
 if(tab==='Settings'){html+='<p class="muted">Customize members and your starting available cash. These settings affect the combined household plan.</p>';html+=frm('opening',`<label class="field">Starting household cash ($)<input type="number" name="opening" min="0" step="0.01" value="${num(state.opening)}" required></label>`,'Save cash balance');html+=frm('member',field('New household member','name','text','maxlength="60"'),'Add household member');html+='<h3>Household members</h3>'+state.people.map(p=>row(p,'Available for paycheck assignment',0,`<button class="compact danger-btn" data-remove-member="${esc(p)}">Remove</button>`)).join('');html+='<h3>Website access</h3><p class="hint">Only approved signed-in people can access this household budget. Generate a one-time invitation code for another household member.</p><div class="bar"><button type="button" id="createInvite">Create 7-day invite</button></div><p class="hint">Invitation codes are sensitive. Share privately with the intended person; each code works once.</p><div id="inviteResult"></div>'}
-$('#view').innerHTML=html;if(tab==='Debt Payoff')window.DebtPlanner.bind(state)}
+$('#view').innerHTML=html;if(tab==='Debt Payoff')window.DebtPlanner.bind(state);if(tab==='December Forecast')window.DecemberForecast.bind(state)}
 function pay(entry,kind,checked){if(Boolean(entry.paid)===checked)return false;const amount=num(kind==='minimum'?entry.minimum:entry.amount);const debt=kind==='minimum'?entry:kind==='extra'?state.debts.find(d=>d.id===entry.debt):null;if(checked){if(debt&&debt.balance<amount){message('Payment exceeds the remaining debt balance.',true);return false}if(debt)debt.balance=num(debt.balance-amount);entry.paid=true;state.transactions.unshift({id:makeId(),source:entry.id,name:kind==='bill'?entry.name:(debt?.name||'Debt')+' payment',amount,date:today(),kind:kind==='bill'?'expense':'debt'})}else{const tx=state.transactions.find(t=>t.source===entry.id);if(tx){if(debt)debt.balance=num(debt.balance+tx.amount);state.transactions=state.transactions.filter(t=>t.id!==tx.id)}entry.paid=false}return true}
 function submit(e){const form=e.target.closest('form[data-kind]');if(!form)return;e.preventDefault();const kind=form.dataset.kind,v=Object.fromEntries(new FormData(form).entries()),amount=kind==='paycheck'||kind==='edit-paycheck'?parsePayAmount(v.amount):Number(v.amount);
  if(kind==='paycheck'||kind==='edit-paycheck'){
