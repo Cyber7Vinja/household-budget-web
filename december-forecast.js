@@ -123,7 +123,7 @@ function makeForecast(state,options={}){
  }
  const baseMap=new Map(baseDays.map(e=>[e.date,e.balance]));
  const weeklyBase=cents(opt.weekly),buffer=cents(opt.buffer);
- let spentGroceries=0;
+ let spentGroceries=0,carriedGroceryAllowance=0;
  const groceryEvents=[];
  for(const w of scenario){
   const previous=w.start===START?opening:(baseMap.get(add(w.start,-1))??opening)-spentGroceries;
@@ -133,10 +133,11 @@ function makeForecast(state,options={}){
   let mode='Not set',factor=0,reason='Set a weekly grocery budget to see shopping recommendations.';
   if(weeklyBase>0){
    if(lowest<buffer+weeklyBase*1.5){mode='Light';factor=0.6;reason='Tight cash ahead or below your safety cushion: buy essentials and avoid a stock-up.';}
-   else if(lowest>=buffer+weeklyBase*5){mode='Stock-up';factor=1.4;reason='Larger projected cushion after upcoming bills: a bigger trip may fit.';}
+   else if(lowest>=buffer+weeklyBase*5 && carriedGroceryAllowance>=Math.round(weeklyBase*.4)){mode='Stock-up';factor=1.4;reason='A lighter grocery week saved enough allowance for this larger trip, and the projected cash cushion can support it.';}
    else {mode='Regular';factor=1;reason='Allow a normal grocery trip while keeping cash for upcoming bills.';}
   }
   const cost=Math.round(weeklyBase*factor);
+  carriedGroceryAllowance=Math.max(0,carriedGroceryAllowance+weeklyBase-cost);
   w.mode=mode;w.cost=cost;w.why=reason;w.forwardLowest=lowest;
   if(cost){groceryEvents.push({date:w.start,kind:'grocery',title:mode+' grocery trip (scenario)',amount:-cost});spentGroceries+=cost;}
  }
@@ -207,13 +208,13 @@ function render(state){
  html+='<div class="dec-result"><div><small>Lowest projected day</small><strong class="'+(s.low.value<0?'dec-red':'')+'">'+round(s.low.value)+'</strong><p>'+fmt(s.low.date)+'</p></div><div><small>Highest projected day</small><strong>'+round(s.high.value)+'</strong><p>'+fmt(s.high.date)+'</p></div><div><small>Grocery scenario across both months</small><strong>'+round(s.grocNov+s.grocDec)+'</strong><p>November '+round(s.grocNov)+' · December '+round(s.grocDec)+'</p></div></div>';
  html+='<div class="dec-inputs"><label class="field">Starting cash before Nov 23 entries ($)<input id="decOpening" type="number" step="0.01" value="'+(f.options.opening===null?Number(state.opening)||0:f.options.opening)+'"></label><label class="field">Weekly grocery example ($)<input id="decWeekly" type="number" min="0" max="5000" step="5" value="'+f.options.weekly+'"></label><label class="field">Minimum cash cushion ($)<input id="decBuffer" type="number" min="0" max="50000" step="50" value="'+f.options.buffer+'"></label><label class="field">Other spending through Nov 30 ($)<input id="decNovExtra" type="number" min="0" max="100000" step="10" value="'+f.options.novExtra+'"></label><label class="field">Other December spending ($)<input id="decDecExtra" type="number" min="0" max="100000" step="10" value="'+f.options.decExtra+'"></label><label class="field"><span>November housing or other undated monthly bills still unpaid?</span><span class="dec-check"><input type="checkbox" id="decNovUndated" '+(f.options.novUndated?'checked':'')+'> Reserve them in November too</span></label></div>';
  html+='<p class="hint">These are <strong>what-if controls only</strong>. Nothing here changes your saved paychecks, debts, or bill dates. Week-ending balances include the example grocery plan; they are not verified bank balances.</p>';
- html+='<h3>Cash highs and lows — with week-end markers</h3><p class="hint">The line changes when paychecks or expenses occur. Blue dots mark the end of each forecast week. Green and pink markers identify the highest and lowest end-of-day balances, not necessarily your intraday cash.</p>'+plot(f);
+ html+='<h3>Cash highs and lows — with week-end markers</h3><p class="hint">The line changes when paychecks or expenses occur. Blue dots mark each week ending. Green and pink markers identify the highest and lowest end-of-day balances. The first week’s low also considers starting cash before November 23 activity, and your intraday balance may differ.</p>'+plot(f);
  html+='<h3>Week-ending balances and grocery-shopping guidance</h3><div class="dec-weeks"><div class="dec-week-header"><span>Week ending</span><span>Week low / high</span><span>Ending cash</span><span>Grocery plan</span></div>';
  for(const w of f.weeks){
   const css=w.mode==='Light'?'dec-light':w.mode==='Stock-up'?'dec-heavy':'dec-regular';
   html+='<div class="dec-week"><div><strong>'+fmt(w.start)+'–'+fmt(w.end)+'</strong><small>+ '+round(w.income)+' income · − '+round(w.bills)+' bills/cards</small></div><div><span class="dec-red">Low '+round(w.low)+'</span><small>High '+round(w.high)+'</small></div><div class="dec-week-close '+(w.close<0?'dec-red':'')+'">'+round(w.close)+'</div><div><span class="dec-grocery '+css+'">'+esc(w.mode)+'</span><strong class="dec-grocery-dollar">'+round(w.cost)+'</strong><small>'+esc(w.why)+'</small></div></div>';
  }
- html+='</div><p class="hint">“Stock-up” means a <strong>larger grocery trip</strong> looks more practical based on the projected cash cushion. “Light” means a smaller essentials-focused trip. Shopping is placed at the beginning of each displayed week, for forecasting only. A weekly example budget of $100 is used until you adjust it.</p>';
+ html+='</div><p class="hint">“Stock-up” means a <strong>larger grocery trip</strong> looks more practical based on the projected cash cushion. “Light” means a smaller essentials-focused trip. Shopping is placed at the beginning of each displayed week, for forecasting only. Stock-up recommendations use unused grocery allowance from earlier light trips; they do not increase the overall example budget. A weekly example budget of $100 is used until you adjust it.</p>';
  const breakdown=(label,obj,grocery)=>'<div class="dec-breakdown"><strong>'+label+'</strong><div>Expected paychecks <b>'+round(obj.income)+'</b></div><div>Bills and one-time charges <b>−'+round(obj.bill)+'</b></div><div>Card minimums <b>−'+round(obj.minimum)+'</b></div><div>Other spending/extra debt <b>−'+round(obj.other)+'</b></div><div>Example groceries <b>−'+round(grocery)+'</b></div><div class="dec-total">Net change <b>'+round(obj.income-obj.bill-obj.minimum-obj.other-grocery)+'</b></div></div>';
  html+='<h3>November-to-December rollover</h3><div class="dec-breakdowns">'+breakdown('Remaining November',s.nov,s.grocNov)+breakdown('December',s.dec,s.grocDec)+'</div>';
  if(f.warnings.length)html+='<div class="dec-warnings"><strong>Dates and assumptions to verify</strong><ul>'+f.warnings.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>';
