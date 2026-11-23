@@ -187,7 +187,11 @@ function model(){
  const runningBase=date=>cents(options.cash)+base.filter(e=>e.date<=date).reduce((s,e)=>s+e.amount,0)-spent;
  for(const w of weeks){
   const lookahead=addDays(w.to,7)>to?to:addDays(w.to,7);
-  let least=runningBase(w.from);
+  // Include the cash available immediately BEFORE the first event of this week.
+  // The Dashboard does the same; a payday later today must not make cash
+  // that is unavailable at the start of the day look safe for groceries.
+  const previous=w.from===from?cents(options.cash):runningBase(addDays(w.from,-1));
+  let least=previous;
   for(let date=w.from;date<=lookahead;date=addDays(date,1))least=Math.min(least,runningBase(date));
   let modeText='Not set',cost=0;
   if(grocery){
