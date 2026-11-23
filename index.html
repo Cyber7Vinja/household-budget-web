@@ -278,7 +278,7 @@ const fmt=s=>new Date(time(s)).toLocaleDateString('en-US',{month:'short',day:'nu
 const monthEnd=(year,month)=>new Date(Date.UTC(year,month,0)).getUTCDate();
 const dayAt=(year,month,day)=>year+'-'+String(month).padStart(2,'0')+'-'+String(Math.min(monthEnd(year,month),day)).padStart(2,'0');
 const between=d=>d>=START&&d<=END;
-const ui={opening:null,weekly:100,buffer:500,novExtra:0,decExtra:0,novUndated:false};
+const ui={opening:null,weekly:100,buffer:500,novExtra:0,decExtra:0,novUndated:false,deferHouse:true};
 function datesFor(item){
  if(!dateOK(item.date))return [];
  const anchor=item.date,frequency=item.frequency||'One-time',out=[];
@@ -305,6 +305,8 @@ function datedEntries(entries,kind,warn,opt){
  const include=(source,date,base)=>{const amount=cents(source.amount);if(amount)result.push({date,title:String(source.name||source.member||base.name||base.member||'Entry'),kind,amount:kind==='income'?amount:-amount,source:source.id});};
  for(const base of parents){
   if(kind==='bill'&&base.budgetOnly)continue;
+  // A household may defer the undated House bill through December without editing its saved bill.
+  if(kind==='bill'&&opt.deferHouse&&String(base.name||'').trim().toLowerCase()==='house'&&base.frequency==='Monthly')continue;
   if(!cents(base.amount))continue;
   if(!dateOK(base.date)){
    const isRecurring=base.frequency&&base.frequency!=='One-time';
@@ -323,6 +325,8 @@ function datedEntries(entries,kind,warn,opt){
  }
  for(const ch of children){
   if(kind==='bill'&&ch.budgetOnly)continue;
+  const owningBill=parents.find(x=>x.id===ch.parent);
+  if(kind==='bill'&&opt.deferHouse&&owningBill&&String(owningBill.name||'').trim().toLowerCase()==='house'&&owningBill.frequency==='Monthly')continue;
   if(!dateOK(ch.date)||!between(ch.date))continue;
   const parent=parents.find(x=>x.id===ch.parent);
   if(parent&&datesFor(parent).includes(ch.date))continue;
@@ -436,7 +440,8 @@ function makeForecast(state,options={}){
  const negatives=days.filter(d=>d.balance<0);
  if(negatives.length)warn.push('One or more projected days fall below $0. A positive month-end amount does not guarantee bills can be covered on time.');
  if(opt.weekly===100)warn.push('The $100 weekly grocery figure is an example, not a recorded expense. Change it to your actual plan.');
- if(!opt.novUndated)warn.push('Undated recurring bills (including housing) are NOT charged in November. Enable the November reserve if they are still owed.');
+ if(opt.deferHouse && (state.bills||[]).some(b=>!b.parent&&String(b.name||'').trim().toLowerCase()==='house'&&b.frequency==='Monthly'))warn.push('The House bill is excluded from the November–December scenario because it is not needed until January. It remains unchanged in the saved Bills tab.');
+ if(!opt.novUndated)warn.push('Other undated recurring bills are NOT charged in November. Enable the November reserve if they are still owed.');
  warn.push('Starting cash is not date-stamped in your budget. Confirm the amount available BEFORE November 23 paychecks and payments to prevent double-counting.');
  const summary={opening,nov:calcBase.nov,dec:calcBase.dec,novClose,decClose,grocNov,grocDec,excludingGroceries,high,low,negativeDays:negatives.length};
  return {summary,days,weeks:scenario,events:detail,warnings:[...new Set(warn)],options:opt};
@@ -471,7 +476,7 @@ function render(state){
  let html='<section id="decForecast"><div class="dec-lede"><strong>November 23 – December 31, 2026</strong>. This cash-flow scenario starts before the November 23 paycheck and carries November’s remaining cash into December. Groceries are a planning example, not existing bank transactions.</div>';
  html+='<div class="dec-stats">'+cell('Starting cash (Nov 23)',s.opening)+cell('November 30 estimate',s.novClose,s.novClose<0?'dec-red':'')+cell('December 31 estimate',s.decClose,s.decClose<0?'dec-red':'')+cell('December net before groceries',s.excludingGroceries.dec,s.excludingGroceries.dec<0?'dec-red':'')+'</div>';
  html+='<div class="dec-result"><div><small>Lowest projected day</small><strong class="'+(s.low.value<0?'dec-red':'')+'">'+round(s.low.value)+'</strong><p>'+fmt(s.low.date)+'</p></div><div><small>Highest projected day</small><strong>'+round(s.high.value)+'</strong><p>'+fmt(s.high.date)+'</p></div><div><small>Grocery scenario across both months</small><strong>'+round(s.grocNov+s.grocDec)+'</strong><p>November '+round(s.grocNov)+' · December '+round(s.grocDec)+'</p></div></div>';
- html+='<div class="dec-inputs"><label class="field">Starting cash before Nov 23 entries ($)<input id="decOpening" type="number" step="0.01" value="'+(f.options.opening===null?Number(state.opening)||0:f.options.opening)+'"></label><label class="field">Weekly grocery example ($)<input id="decWeekly" type="number" min="0" max="5000" step="5" value="'+f.options.weekly+'"></label><label class="field">Minimum cash cushion ($)<input id="decBuffer" type="number" min="0" max="50000" step="50" value="'+f.options.buffer+'"></label><label class="field">Other spending through Nov 30 ($)<input id="decNovExtra" type="number" min="0" max="100000" step="10" value="'+f.options.novExtra+'"></label><label class="field">Other December spending ($)<input id="decDecExtra" type="number" min="0" max="100000" step="10" value="'+f.options.decExtra+'"></label><label class="field"><span>November housing or other undated monthly bills still unpaid?</span><span class="dec-check"><input type="checkbox" id="decNovUndated" '+(f.options.novUndated?'checked':'')+'> Reserve them in November too</span></label></div>';
+ html+='<div class="dec-inputs"><label class="field">Starting cash before Nov 23 entries ($)<input id="decOpening" type="number" step="0.01" value="'+(f.options.opening===null?Number(state.opening)||0:f.options.opening)+'"></label><label class="field">Weekly grocery example ($)<input id="decWeekly" type="number" min="0" max="5000" step="5" value="'+f.options.weekly+'"></label><label class="field">Minimum cash cushion ($)<input id="decBuffer" type="number" min="0" max="50000" step="50" value="'+f.options.buffer+'"></label><label class="field">Other spending through Nov 30 ($)<input id="decNovExtra" type="number" min="0" max="100000" step="10" value="'+f.options.novExtra+'"></label><label class="field">Other December spending ($)<input id="decDecExtra" type="number" min="0" max="100000" step="10" value="'+f.options.decExtra+'"></label><label class="field"><span>Other undated monthly bills still unpaid for November?</span><span class="dec-check"><input type="checkbox" id="decNovUndated" '+(f.options.novUndated?'checked':'')+'> Reserve those in November too</span></label><label class="field"><span>House payment deferred until January</span><span class="dec-check"><input type="checkbox" id="decDeferHouse" '+(f.options.deferHouse?'checked':'')+'> Exclude House from November and December</span></label></div>';
  html+='<p class="hint">These are <strong>what-if controls only</strong>. Nothing here changes your saved paychecks, debts, or bill dates. Week-ending balances include the example grocery plan; they are not verified bank balances.</p>';
  html+='<h3>Cash highs and lows — with week-end markers</h3><p class="hint">The line changes when paychecks or expenses occur. Blue dots mark each week ending. Green and pink markers identify the highest and lowest end-of-day balances. The first week’s low also considers starting cash before November 23 activity, and your intraday balance may differ.</p>'+plot(f);
  html+='<h3>Week-ending balances and grocery-shopping guidance</h3><div class="dec-weeks"><div class="dec-week-header"><span>Week ending</span><span>Week low / high</span><span>Ending cash</span><span>Grocery plan</span></div>';
@@ -497,9 +502,10 @@ function bind(state){
   ui.novExtra=Math.max(0,Number(get('decNovExtra').value)||0);
   ui.decExtra=Math.max(0,Number(get('decDecExtra').value)||0);
   ui.novUndated=get('decNovUndated').checked;
+  ui.deferHouse=get('decDeferHouse').checked;
   root.outerHTML=render(state);bind(state);
  };
- for(const id of ['decOpening','decWeekly','decBuffer','decNovExtra','decDecExtra','decNovUndated'])root.querySelector('#'+id).addEventListener('change',changes);
+ for(const id of ['decOpening','decWeekly','decBuffer','decNovExtra','decDecExtra','decNovUndated','decDeferHouse'])root.querySelector('#'+id).addEventListener('change',changes);
 }
 function dashboard(state){
  const s=makeForecast(state).summary;
