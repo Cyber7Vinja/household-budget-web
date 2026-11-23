@@ -199,7 +199,7 @@ function makeForecast(state,options={}){
  if(negatives.length)warn.push('One or more projected days fall below $0. A positive month-end amount does not guarantee bills can be covered on time.');
  if(opt.weekly===100)warn.push('The $100 weekly grocery figure is an example, not a recorded expense. Change it to your actual plan.');
  if((state.bills||[]).some(b=>!b.parent&&String(b.name||'').trim().toLowerCase()==='house'))warn.push('The House bill is intentionally excluded from this cash forecast and remains unchanged in Bills.');
- if(!opt.novUndated)warn.push('Other undated recurring bills are NOT charged in November. Enable the November reserve if they are still owed.');
+ if(!opt.novUndated&&(state.bills||[]).some(b=>!b.parent&&b.frequency&&b.frequency!=='One-time'&&!dateOK(b.date)&&String(b.name||'').trim().toLowerCase()!=='house'))warn.push('Other undated recurring bills are NOT charged in November. Enable the November reserve if they are still owed.');
  warn.push('Starting cash is not date-stamped in your budget. Confirm the amount available BEFORE November 23 paychecks and payments to prevent double-counting.');
  const summary={opening,nov:calcBase.nov,dec:calcBase.dec,novClose,decClose,grocNov,grocDec,excludingGroceries,high,low,negativeDays:negatives.length,gasCost,christmasCost};
  return {summary,days,weeks:scenario,events:detail,warnings:[...new Set(warn)],options:opt};
