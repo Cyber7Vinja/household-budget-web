@@ -145,7 +145,7 @@ function bind(state){
 }
 function dashboard(state){
  const f=forecast(state);
- return '<div class="dec-dashboard"><div><small>December 2026 cash-flow forecast</small><strong>'+cash(f.net)+' <span>estimated surplus</span></strong><small>Conditional Dec 31 cash: '+cash(f.closing)+' if starting cash is available Dec 1</small></div><button type="button" id="openDecemberForecast">View December forecast</button></div>';
+ return '<div class="dec-dashboard"><div><small>December 2026 cash-flow forecast</small><strong>'+cash(f.net)+' <span>estimated surplus</span></strong><small>Conditional Dec 31 cash: '+cash(f.closing)+' if starting cash is available Dec 1</small></div><button type="button" data-tab="December Forecast">View December forecast</button></div>';
 }
 window.DecemberForecast={forecast,render,bind,dashboard,datesFor};
 })();
