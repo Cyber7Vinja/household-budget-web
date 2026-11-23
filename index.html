@@ -4,6 +4,31 @@
 
 .auth-wrap{min-height:100vh;display:flex;justify-content:center;align-items:center;padding:32px;background:#0e121c}.auth-card{width:min(520px,100%);border:1px solid #394963;background:#192231;border-radius:17px;padding:28px}.auth-card input{margin-bottom:14px}.auth-card button{margin:5px 5px 5px 0}.auth-card h1{margin-bottom:18px}.auth-note{font-size:14px;line-height:1.5;color:#b8c4d8}.auth-error{color:#ffacb3}.auth-card[hidden],.auth-wrap[hidden],#appRoot[hidden],#loginFields[hidden],#householdFields[hidden]{display:none!important}.sync{color:#9ed7c3;font-size:12px}.btnlink{background:none;border:none;text-decoration:underline;color:#bac5ff;padding:5px}
 
+
+#debtPlanner{display:grid;gap:14px}
+.dp-intro{background:#192d3c;border:1px solid #365970;padding:16px;border-radius:12px;line-height:1.55}
+.dp-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.dp-controls label{color:#dee6f5}
+.dp-controls input,.dp-controls select{width:100%}
+.dp-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.dp-stat,.dp-budget,.dp-warning,.dp-comparison>div{padding:15px;border:1px solid #364761;background:#131d2d;border-radius:11px}
+.dp-stat small,.dp-comparison small{font-size:12px;color:#b6c4d7;display:block;margin-bottom:9px}
+.dp-stat strong,.dp-comparison strong{font-size:19px;display:block;overflow-wrap:anywhere}
+.dp-budget{background:#182c2b;border-color:#31665c;line-height:1.55}
+.dp-budget p{margin:6px 0}
+.dp-warning{background:#3a2e27;border-color:#916c3e;line-height:1.55;color:#ffe3b3}
+.dp-chart-scroll{overflow-x:auto;background:#111b2b;border:1px solid #374760;padding:8px;border-radius:12px}
+.dp-legend{display:flex;flex-wrap:wrap;gap:18px;color:#bdc8dd;font-size:13px}
+.dp-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px}
+.dp-comparison{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.dp-targets{display:grid;gap:7px}
+.dp-target{display:flex;align-items:center;gap:12px;border:1px solid #39455b;border-radius:10px;padding:10px 14px;min-width:0}
+.dp-target div{flex:1;min-width:0}.dp-target strong{display:block;overflow-wrap:anywhere}.dp-target small{color:#b2c3da;font-size:12px;display:block;margin-top:3px}
+.dp-number{background:#32466e;border-radius:50%;height:28px;width:28px;flex:0 0 28px;display:grid;place-items:center;font-weight:700}
+.dp-target b{white-space:nowrap}
+@media(max-width:1000px){.dp-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.dp-controls,.dp-comparison{grid-template-columns:1fr}.dp-stat strong,.dp-comparison strong{font-size:16px}.dp-target{padding:9px}}
+
 </style></head><body>
 <div id="authScreen" class="auth-wrap"><div class="auth-card"><h1>Household Budget</h1><h2>Private access</h2><p id="authNote" class="auth-note">Sign in to see your private budget. The website does not publish card balances or transactions.</p>
 <div id="loginFields"><form id="authForm" novalidate><label class="field">Email<input id="loginEmail" type="email" autocomplete="email" required></label><label class="field">Password<input id="loginPassword" type="password" autocomplete="current-password" minlength="12" required></label><button id="signin" class="primary" type="button">Sign in</button><button id="signup" type="button">Create household login</button></form></div>
@@ -11,6 +36,161 @@
 <p class="auth-error" id="authError" role="alert" aria-live="polite"></p><p class="hint">This site uses Supabase authentication. An administrator must complete the database setup before first use. You should never enter bank passwords here.</p>
 </div></div><div id="appRoot" hidden><header><div><h1>Household Budget</h1><small>Private household budget · October data restored after login</small></div><div class="tools"><span id="syncStatus" class="sync">Connecting...</span><span id="signedIn" class="hint"></span><button id="reloadLatest" class="compact">Reload latest</button><button id="logout" class="compact">Sign out</button><button id="exportBackup" class="compact">Export backup</button><button id="importBackup" class="compact">Import backup</button><button id="importPrevious" class="compact">Restore this browser’s previous budget</button><input hidden type="file" id="backupFile" accept=".json,application/json"><button id="resetData" class="compact danger-btn">Reset shared budget</button></div></header>
 <main><nav id="tabs" aria-label="Budget sections"></nav><div class="cards" id="stats"></div><div id="status" role="status" aria-live="polite" hidden></div><div id="confirmation" aria-live="polite"></div><section class="panel" id="view"></section><p class="hint footer">Entries are saved only in your authenticated household database, with access controlled by row-level security. No bank connections or payment processing. Never enter complete card numbers, routing numbers or bank passwords. Export private backups regularly.</p></main></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.2/dist/umd/supabase.min.js"></script><script>window.BUDGET_CONFIG={"url":"https://ngeaxqiwzmuahchixowr.supabase.co","anonKey":"sb_publishable_B-pQeCtPD7LZIVFKdudAMQ_GxNF5XBE"};</script><script>
+(function(){
+'use strict';
+const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0);
+const precise = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n)||0);
+const esc = v => String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp = (v,a,b) => Math.min(b,Math.max(a,v));
+const settings = {strategy:'avalanche',extra:0,missingApr:30};
+function cards(state){
+ return (Array.isArray(state.debts)?state.debts:[]).filter(d=>/credit\s*card/i.test(String(d.type||''))&&Number(d.balance)>0).map(d=>({
+  id:String(d.id||''),name:String(d.name||'Unnamed card'),balance:Math.round(Math.max(0,Number(d.balance)||0)*100),
+  minimum:Math.round(Math.max(0,Number(d.minimum)||0)*100),
+  apr: d.apr===null||d.apr===undefined||d.apr===''?null:clamp(Number(d.apr)||0,0,100),
+  limit:Math.max(0,Number(d.limit)||0)
+ }));
+}
+function monthlyBills(state){
+ const factors={'Weekly':52/12,'Biweekly':26/12,'Twice monthly':2,'Monthly':1};
+ return (state.bills||[]).reduce((s,b)=>s+(!b.budgetOnly?Math.max(0,Number(b.amount)||0)*(factors[b.frequency]||0):0),0);
+}
+function recurringIncome(state){
+ const factors={'Weekly':52/12,'Biweekly':26/12,'Twice monthly':2,'Monthly':1};
+ const latest=new Map();
+ for(const p of (state.paychecks||[])){
+  if(!factors[p.frequency])continue;
+  const key=String(p.member||'unknown')+'|'+p.frequency;
+  const old=latest.get(key);
+  if(!old||(old.parent&&!p.parent)||(!old.parent===!p.parent&&String(p.date||'')>String(old.date||'')))latest.set(key,p);
+ }
+ let total=0;
+ for(const p of latest.values())total+=Math.max(0,Number(p.amount)||0)*(factors[p.frequency]||0);
+ return {total,series:latest.size};
+}
+function simulate(entries,extra,strategy,missingApr){
+ const list=entries.map(x=>({...x,remaining:x.balance,aprApplied:x.apr===null?missingApr:x.apr}));
+ const principal=list.reduce((s,x)=>s+x.remaining,0);
+ const monthlyBudget=list.reduce((s,x)=>s+x.minimum,0)+Math.round(extra*100);
+ let cumulativeInterest=0;
+ const points=[principal];
+ const finished=[];
+ if(!principal)return {months:0,interest:0,points,finished,paidOff:true};
+ if(monthlyBudget<=0)return {months:null,interest:0,points,finished,paidOff:false};
+ for(let month=1;month<=600;month++){
+  const active=list.filter(d=>d.remaining>0);
+  for(const d of active){
+   const interest=Math.round(d.remaining*d.aprApplied/1200);
+   d.remaining+=interest;cumulativeInterest+=interest;
+  }
+  let remainingBudget=monthlyBudget;
+  for(const d of active){
+   const payment=Math.min(remainingBudget,d.minimum,d.remaining);
+   d.remaining-=payment;remainingBudget-=payment;
+   if(d.remaining<=0)finished.push({name:d.name,month});
+  }
+  const priority=list.filter(d=>d.remaining>0).sort((a,b)=>strategy==='avalanche'
+   ? b.aprApplied-a.aprApplied||a.remaining-b.remaining
+   : a.remaining-b.remaining||b.aprApplied-a.aprApplied);
+  for(const d of priority){
+   if(remainingBudget<=0)break;
+   const payment=Math.min(remainingBudget,d.remaining);
+   d.remaining-=payment;remainingBudget-=payment;
+   if(d.remaining<=0)finished.push({name:d.name,month});
+  }
+  const left=list.reduce((s,d)=>s+d.remaining,0);
+  points.push(left);
+  if(left===0)return {months:month,interest:cumulativeInterest,points,finished,paidOff:true};
+ }
+ return {months:null,interest:cumulativeInterest,points,finished,paidOff:false};
+}
+function plot(baseline,scenario,total){
+ const horizon=Math.min(120,Math.max(12,baseline.months||60,scenario.months||60));
+ const W=900,H=270,left=82,right=20,top=25,bottom=44,plotW=W-left-right,plotH=H-top-bottom;
+ const x=n=>left+plotW*n/horizon;
+ const y=v=>top+plotH*(1-Math.min(1,Math.max(0,v/Math.max(1,total))));
+ function poly(model){
+  const d=[];
+  for(let m=0;m<=horizon;m++){
+   const index=Math.min(m,model.points.length-1);
+   const value=model.months!==null&&m>model.months?0:model.points[index];
+   d.push((m?'L':'M')+x(m).toFixed(1)+','+y(value).toFixed(1));
+  }
+  return d.join(' ');
+ }
+ const ticks=[0,.25,.5,.75,1].map(v=>'<line x1="'+left+'" x2="'+(W-right)+'" y1="'+y(total*v)+'" y2="'+y(total*v)+'" stroke="#35435b" stroke-dasharray="3 5"/><text x="'+(left-12)+'" y="'+(y(total*v)+4)+'" text-anchor="end" font-size="13" fill="#bbc8db">'+money(total*v)+'</text>').join('');
+ const xticks=[0,Math.round(horizon/4),Math.round(horizon/2),Math.round(3*horizon/4),horizon].map(m=>'<text x="'+x(m)+'" y="'+(H-12)+'" text-anchor="middle" font-size="13" fill="#bbc8db">'+m+' mo</text>').join('');
+ return '<div class="dp-chart-scroll"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Projected remaining credit card debt over '+horizon+' months. Purple is your selected plan; gray is minimum-only baseline." style="width:100%;height:auto;min-width:460px">'+ticks+'<path d="'+poly(baseline)+'" stroke="#94a3b8" stroke-width="3" stroke-dasharray="9 7" fill="none" stroke-linecap="round"/><path d="'+poly(scenario)+'" stroke="#a5b4fc" stroke-width="4" fill="none" stroke-linecap="round"/>'+xticks+'</svg></div><div class="dp-legend"><span><i class="dp-dot" style="background:#a5b4fc"></i>Selected strategy</span><span><i class="dp-dot" style="background:#94a3b8"></i>Minimum-only comparison</span></div>';
+}
+function monthText(n){return n===null?'Not reached in model':n===0?'Already paid off':n+' months (approx. '+(n/12).toFixed(1)+' years)'}
+function result(state){
+ const all=cards(state);
+ if(!all.length)return '<div class="empty">Add credit card accounts in Debt & Credit to model repayment.</div>';
+ const total=all.reduce((a,c)=>a+c.balance,0);
+ const min=all.reduce((a,c)=>a+c.minimum,0);
+ const known=all.reduce((a,c)=>a+(c.apr!==null?Math.round(c.balance*c.apr/1200):0),0);
+ const missing=all.filter(c=>c.apr===null);
+ const zero=all.filter(c=>c.apr===0);
+ const over=all.filter(c=>c.limit>0&&c.balance/100>c.limit);
+ const incl=(known+missing.reduce((s,c)=>s+Math.round(c.balance*settings.missingApr/1200),0))/100;
+ const scenario=simulate(all,settings.extra,settings.strategy,settings.missingApr);
+ const baseline=simulate(all,0,settings.strategy,settings.missingApr);
+ const income=recurringIncome(state);
+ const other=monthlyBills(state);
+ const needs=other+min/100;
+ const margin=income.total-needs;
+ const canExtra=margin>=settings.extra;
+ const top=[...all].sort((a,b)=>settings.strategy==='avalanche'?(b.apr===null?settings.missingApr:b.apr)-(a.apr===null?settings.missingApr:a.apr)||a.balance-b.balance:a.balance-b.balance);
+ const savings=baseline.paidOff&&scenario.paidOff?(baseline.interest-scenario.interest)/100:null;
+ let html='<div class="dp-metrics">'+[
+  ['Outstanding card debt',precise(total/100)],['Minimum card payments / month',precise(min/100)],
+  ['Approx. first month interest',precise(incl)],['Selected payoff horizon',monthText(scenario.months)]
+ ].map(pair=>'<div class="dp-stat"><small>'+esc(pair[0])+'</small><strong>'+esc(pair[1])+'</strong></div>').join('')+'</div>';
+ html+='<div class="dp-budget '+(margin<0?'dp-warning':'')+'"><strong>Recorded recurring cash flow</strong><p>Estimated recurring income: '+precise(income.total)+'/month across '+income.series+' recorded pay schedule(s). Listed non-card bills: '+precise(other)+'/month. Card minimums: '+precise(min/100)+'/month. <strong>Difference: '+precise(margin)+'/month.</strong></p>';
+ if(income.series===0)html+='<p>There are no recorded recurring paycheck schedules. Income needs to be entered before affordability can be assessed.</p>';
+ else if(margin<0)html+='<p><strong>Warning:</strong> Recorded recurring income does not cover listed bills plus card minimums. Add any missing household paychecks and review actual monthly expenses before making extra payments.</p>';
+ else if(!canExtra)html+='<p><strong>Warning:</strong> The selected extra payment exceeds the surplus shown by recorded income and bills. Do not commit to it until actual cash flow is verified.</p>';
+ else html+='<p>The selected extra payment is within the surplus currently recorded, but verify the figures against real account balances.</p>';
+ html+='</div>';
+ if(missing.length||zero.length||over.length)html+='<div class="dp-warning"><strong>Check these details:</strong> '+[
+  missing.length?missing.length+' card(s) have no APR entered ('+missing.map(c=>esc(c.name)).join(', ')+'). The scenario uses '+settings.missingApr+'% for them; that is an assumption, not the actual rate.':'',
+  zero.length?zero.length+' card(s) show 0% APR. Confirm whether that rate is temporary.':'',
+  over.length?over.length+' card(s) are above their entered credit limits.':''
+ ].filter(Boolean).join(' ')+'</div>';
+ html+='<h3>Projected remaining card debt</h3>';
+ html+='<p class="hint">The purple line assumes the same total card payment continues each month even after individual cards are paid off. The gray line shows the recorded minimum-payment total without additional money. Both are modeled estimates, not bank statements.</p>';
+ html+=plot(baseline,scenario,total);
+ html+='<div class="dp-comparison"><div><small>Minimum-only strategy</small><strong>'+monthText(baseline.months)+'</strong></div><div><small>Selected strategy</small><strong>'+monthText(scenario.months)+'</strong></div><div><small>Estimated interest saved versus minimum-only</small><strong>'+(savings===null?'Not calculable':precise(Math.max(0,savings)))+'</strong></div></div>';
+ html+='<h3>Which cards to target</h3><p class="hint">Pay at least each card’s required minimum. Put additional money toward the first target below, then move to the next. This is the priority order, not a promise of the order each card will close.</p>';
+ html+='<div class="dp-targets">'+top.slice(0,6).map((d,i)=>'<div class="dp-target"><span class="dp-number">'+(i+1)+'</span><div><strong>'+esc(d.name)+'</strong><small>'+ (d.apr===null?'Unknown APR ('+settings.missingApr+'% scenario)':d.apr.toFixed(2)+'% APR')+'</small></div><b>'+precise(d.balance/100)+'</b></div>').join('')+'</div>';
+ html+='<p class="hint">Assumptions: no new card charges or fees; unchanged APRs; monthly interest approximated as APR ÷ 12; payments made monthly; no missed payments; current minimums and the full initial monthly card-payment budget continue to be paid, even as individual debts reach $0. Your actual minimum payments, statement dates, promotions, and interest will vary. This chart does not schedule or make any payments.</p>';
+ return html;
+}
+function render(state){
+ const all=cards(state);
+ return '<section id="debtPlanner"><div class="dp-intro">Explore a debt-free path using <strong>your signed-in household’s current card data</strong>. The controls below model scenarios only; changing them will not change account balances or schedule a payment.</div>'+
+ '<div class="dp-controls"><label class="field">Payoff approach<select id="dpStrategy"><option value="avalanche"'+(settings.strategy==='avalanche'?' selected':'')+'>Highest APR first (avalanche)</option><option value="snowball"'+(settings.strategy==='snowball'?' selected':'')+'>Smallest balance first (snowball)</option></select></label>'+
+ '<label class="field">Extra card payment each month ($)<input id="dpExtra" type="number" min="0" max="10000" step="25" value="'+settings.extra+'"></label>'+
+ '<label class="field">Assumed APR for missing rates (%)<input id="dpUnknown" type="number" min="0" max="100" step="0.25" value="'+settings.missingApr+'"></label></div>'+
+ '<p class="hint">The APR assumption is used only for modeling cards with missing rates. Enter their real APRs in Debt & Credit for a better forecast.</p>'+
+ '<div id="dpResults" aria-live="polite">'+result(state)+'</div></section>';
+}
+function bind(state){
+ const root=document.getElementById('debtPlanner');if(!root)return;
+ const update=()=>{
+  const strategy=root.querySelector('#dpStrategy');
+  const extra=root.querySelector('#dpExtra');
+  const unknown=root.querySelector('#dpUnknown');
+  settings.strategy=strategy.value==='snowball'?'snowball':'avalanche';
+  settings.extra=clamp(Number(extra.value)||0,0,10000);
+  settings.missingApr=clamp(Number(unknown.value)||0,0,100);
+  root.querySelector('#dpResults').innerHTML=result(state);
+ };
+ root.querySelectorAll('#dpStrategy,#dpExtra,#dpUnknown').forEach(el=>el.addEventListener('input',update));
+}
+window.DebtPlanner={render,bind,simulate,cards};
+})();
+</script><script>
 (()=>{'use strict';
 // Budget data is loaded only after verified Supabase authentication and household membership.
 
@@ -25,7 +205,7 @@ const pretty=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d||''))return 'No date';const [y
 const seed=()=>({opening:0,people:['Member 1','Member 2'],paychecks:[],bills:[],debts:[],extras:[],transactions:[]});
 const normalize=o=>{const s=seed();if(!o||typeof o!=='object'||Array.isArray(o))return s;for(const k of ['people','paychecks','bills','debts','extras','transactions'])if(Array.isArray(o[k]))s[k]=o[k].filter(item=>k==='people'?typeof item==='string'&&item.trim().length>0:!!item&&typeof item==='object'&&!Array.isArray(item));if(!s.people.length)s.people=['Member 1','Member 2'];if(Number.isFinite(Number(o.opening)))s.opening=num(o.opening);return s};
 let storageWorking=true,state=seed(),revision=0,householdId=null,householdRole=null,saveBlocked=false,savePending=0,saveQueue=Promise.resolve();
-let tab='Dashboard',editing=null,pendingAction=null,paycheckNotice=null;const tabs=['Dashboard','Paychecks','Bills','Debt & Credit','Transactions','Bank Accounts','Settings'];
+let tab='Dashboard',editing=null,pendingAction=null,paycheckNotice=null;const tabs=['Dashboard','Paychecks','Bills','Debt & Credit','Debt Payoff','Transactions','Bank Accounts','Settings'];
 const $=s=>document.querySelector(s);
 function save(){
  if(!window.budgetDB||!householdId||saveBlocked){message('Budget cannot be saved. Export a backup and use Reload latest after resolving the connection.',true);return false}
@@ -155,10 +335,11 @@ function render(){const confirm=$('#confirmation');confirm.innerHTML=pendingActi
 if(tab==='Paychecks'){html+='<div class="bar"><button id="generate" class="primary">Generate next 3 months</button><span class="hint">Enter an amount, select a date and click Add paycheck. A confirmation or error appears above the form.</span></div>';html+=editingPanel();html+=paycheckForm();if(paycheckNotice)html+=`<div class="notice ${paycheckNotice.error?'error':''}" role="status" aria-live="polite">${esc(paycheckNotice.text)}</div>`;html+='<p class="hint">A confirmation appears under the form after adding. Your paychecks are saved to the private household database and can be shared with authorized members.</p>';const all=[...state.paychecks].sort((a,b)=>String(a?.date||'').localeCompare(String(b?.date||'')));html+=all.map(p=>row(p.member,`${pretty(p.date)} · ${esc(p.frequency||'One-time')}${p.parent?' · Generated':''}`,p.amount,`<button class="compact" data-edit-paycheck="${esc(p.id)}">Edit</button><button class="compact danger-btn" data-remove-pay="${esc(p.id)}">Remove</button>`)).join('')||'<div class="empty">No paychecks yet.</div>'}
 if(tab==='Bills'){html+='<p class="muted">Add your bills and upcoming payment dates. Undated bills are excluded from forecasting. Any imported Credit Cards budget line is for planning only, not a second debt minimum.</p>';html+=editingPanel();html+=frm('bill',field('Bill name','name','text','placeholder="Rent, electricity, internet..."')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Due date','date','date')+select('Repeat','frequency',freqOptions()),'Add bill');html+=state.bills.map(b=>row(b.name,`${b.date?pretty(b.date):'<span class="warn">Due date needed</span>'} · ${b.paid?'<span class="ok">Paid</span>':'Unpaid'} · ${esc(b.frequency||'One-time')}${b.budgetOnly?' · Budget allocation, not a second debt payment':''}`,b.amount,`<button class="compact" data-edit-bill="${esc(b.id)}">Edit bill</button>${b.budgetOnly?'<span class="pill">Reference only</span>':`<label class="inline-label"><input type="checkbox" data-paid-bill="${esc(b.id)}" ${b.paid?'checked':''}>Paid</label>${assignControl(b)}`}<button class="compact danger-btn" data-remove-bill="${esc(b.id)}">Remove</button>`)).join('')||'<div class="empty">No bills yet.</div>'}
 if(tab==='Debt & Credit'){html+='<p class="muted">Track credit cards and loans here. Set a next due date to include each minimum payment in the funding forecast. Missing APRs are not estimated.</p>';html+=editingPanel();html+=frm('debt',field('Account nickname','name')+select('Type','type',['Credit Card','Auto Loan','Personal Loan','Mortgage','Student Loan','Other'].map(v=>[v,v]))+field('Current balance','balance','number','min="0" step="0.01"')+field('Minimum payment','minimum','number','min="0.01" step="0.01"')+field('Next due date','due','date')+field('APR (%)','apr','number','min="0" step="0.01"')+field('Credit limit (0 for loans)','limit','number','min="0" step="0.01"'),'Add debt');html+=state.debts.map(d=>row(d.name,`${esc(d.type)} · ${d.apr==null?'APR not provided':num(d.apr)+'% APR'} · Minimum ${num(d.minimum)>0?money(d.minimum):'<span class="bad">Not entered</span>'} · Due ${d.due?pretty(d.due):d.dueDay?'<span class="warn">Day '+d.dueDay+' · set next date</span>':'<span class="bad">Not entered</span>'}${num(d.limit)>0?' · Limit '+money(d.limit):''}`,d.balance,`<label class="inline-label"><input type="checkbox" data-paid-debt="${esc(d.id)}" ${d.paid?'checked':''}>Minimum paid</label>${assignControl(d)}<button class="compact" data-edit-debt="${esc(d.id)}">Edit details</button><button class="compact danger-btn" data-remove-debt="${esc(d.id)}">Remove</button>`)).join('')||'<div class="empty">No debts yet.</div>';html+='<h3>Schedule an extra payment</h3>';if(state.debts.length&&state.paychecks.length)html+=frm('extra',select('Debt','debt',state.debts.map(d=>[d.id,d.name]))+select('From paycheck','paycheck',state.paychecks.map(p=>[p.id,p.member+' · '+pretty(p.date)]))+field('Extra payment ($)','amount','number','min="0.01" step="0.01"'),'Schedule extra payment');else html+='<p class="hint">Add at least one debt and paycheck first.</p>';html+=state.extras.map(x=>row(state.debts.find(d=>d.id===x.debt)?.name||'Debt',`Extra payment · ${x.paid?'Paid':'Scheduled'}`,x.amount,`<label class="inline-label"><input type="checkbox" data-paid-extra="${esc(x.id)}" ${x.paid?'checked':''}>Paid</label><button class="compact danger-btn" data-remove-extra="${esc(x.id)}">Remove</button>`)).join('');html+='<p class="hint">Account balances and interest rates are entered manually and are not linked to your bank. Debt payments are treated as reductions in principal; this app does not calculate statement interest or provide financial advice.</p>'}
+if(tab==='Debt Payoff'){html+=window.DebtPlanner.render(state)}
 if(tab==='Transactions'){html+=frm('expense',field('Expense description','name')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Transaction date','date','date'),'Add expense');html+=state.transactions.map(x=>row(x.name,`${pretty(x.date)} · ${esc(x.kind)}`,x.amount,`<button class="compact danger-btn" data-remove-transaction="${esc(x.id)}">Remove</button>`)).join('')||'<div class="empty">No transactions recorded.</div>'}
 if(tab==='Bank Accounts')html+='<div class="empty">Checking and savings account management will be added separately. No bank account connection is active.</div>';
 if(tab==='Settings'){html+='<p class="muted">Customize members and your starting available cash. These settings affect the combined household plan.</p>';html+=frm('opening',`<label class="field">Starting household cash ($)<input type="number" name="opening" min="0" step="0.01" value="${num(state.opening)}" required></label>`,'Save cash balance');html+=frm('member',field('New household member','name','text','maxlength="60"'),'Add household member');html+='<h3>Household members</h3>'+state.people.map(p=>row(p,'Available for paycheck assignment',0,`<button class="compact danger-btn" data-remove-member="${esc(p)}">Remove</button>`)).join('');html+='<h3>Website access</h3><p class="hint">Only approved signed-in people can access this household budget. Generate a one-time invitation code for another household member.</p><div class="bar"><button type="button" id="createInvite">Create 7-day invite</button></div><p class="hint">Invitation codes are sensitive. Share privately with the intended person; each code works once.</p><div id="inviteResult"></div>'}
-$('#view').innerHTML=html}
+$('#view').innerHTML=html;if(tab==='Debt Payoff')window.DebtPlanner.bind(state)}
 function pay(entry,kind,checked){if(Boolean(entry.paid)===checked)return false;const amount=num(kind==='minimum'?entry.minimum:entry.amount);const debt=kind==='minimum'?entry:kind==='extra'?state.debts.find(d=>d.id===entry.debt):null;if(checked){if(debt&&debt.balance<amount){message('Payment exceeds the remaining debt balance.',true);return false}if(debt)debt.balance=num(debt.balance-amount);entry.paid=true;state.transactions.unshift({id:makeId(),source:entry.id,name:kind==='bill'?entry.name:(debt?.name||'Debt')+' payment',amount,date:today(),kind:kind==='bill'?'expense':'debt'})}else{const tx=state.transactions.find(t=>t.source===entry.id);if(tx){if(debt)debt.balance=num(debt.balance+tx.amount);state.transactions=state.transactions.filter(t=>t.id!==tx.id)}entry.paid=false}return true}
 function submit(e){const form=e.target.closest('form[data-kind]');if(!form)return;e.preventDefault();const kind=form.dataset.kind,v=Object.fromEntries(new FormData(form).entries()),amount=kind==='paycheck'||kind==='edit-paycheck'?parsePayAmount(v.amount):Number(v.amount);
  if(kind==='paycheck'||kind==='edit-paycheck'){
