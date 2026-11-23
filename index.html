@@ -206,6 +206,22 @@
 @media(max-width:920px){.fs-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.fs-add{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.fs-inputs{grid-template-columns:1fr}.fs-stat{padding:11px}.fs-toolbar .hint{text-align:left}.fs-week-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fs-week-grid>span{border-bottom:1px solid #334761}.fs-week-grid b{font-size:17px}.fs-add{grid-template-columns:1fr}.fs-event{grid-template-columns:48px minmax(0,1fr) auto;gap:5px}.fs-event>strong{font-size:12px}}
 
+
+/* Debt payoff clarity: distinguish debt modeling from household cash and show monthly averages. */
+.dp-cashlines{margin:12px 0;border-top:1px solid #3c5462}
+.dp-cashline{display:flex;justify-content:space-between;align-items:start;gap:16px;border-bottom:1px solid #344c59;padding:10px 0;font-size:14px}
+.dp-cashline b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.dp-good{color:#b1f0cd}
+.dp-cash-total{display:flex;justify-content:space-between;gap:18px;padding:13px 12px;margin:13px -4px 10px;border-radius:8px;background:#24473b;color:#dcf9e9}
+.dp-cash-total strong{font-size:14px}
+.dp-cash-total strong:last-child{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dp-cash-total.dp-negative{background:#59312f;color:#ffd0c8}
+.dp-house-note{font-size:13px;color:#f5e5c7;line-height:1.55}
+.dp-data-details{margin:12px 0}
+.dp-data-details summary{cursor:pointer}
+.dp-data-details li{margin:9px 0}
+@media(max-width:600px){.dp-cashline{font-size:12px}.dp-cashline b{font-size:12px}.dp-cash-total{display:grid;gap:6px}.dp-cash-total strong:last-child{text-align:left}}
+
 </style></head><body>
 <div id="authScreen" class="auth-wrap"><div class="auth-card"><h1>Household Budget</h1><h2>Private access</h2><p id="authNote" class="auth-note">Sign in to see your private budget. The website does not publish card balances or transactions.</p>
 <div id="loginFields"><form id="authForm" novalidate><label class="field">Email<input id="loginEmail" type="email" autocomplete="email" required></label><label class="field">Password<input id="loginPassword" type="password" autocomplete="current-password" minlength="12" required></label><button id="signin" class="primary" type="button">Sign in</button><button id="signup" type="button">Create household login</button></form></div>
@@ -230,7 +246,7 @@ function cards(state){
 }
 function monthlyBills(state){
  const factors={'Weekly':52/12,'Biweekly':26/12,'Twice monthly':2,'Monthly':1};
- return (state.bills||[]).reduce((s,b)=>s+(!b.budgetOnly?Math.max(0,Number(b.amount)||0)*(factors[b.frequency]||0):0),0);
+ return (state.bills||[]).reduce((s,b)=>s+(!b.parent&&!b.budgetOnly?Math.max(0,Number(b.amount)||0)*(factors[b.frequency]||0):0),0);
 }
 function recurringIncome(state){
  const factors={'Weekly':52/12,'Biweekly':26/12,'Twice monthly':2,'Monthly':1};
@@ -297,7 +313,7 @@ function plot(baseline,scenario,total){
  }
  const ticks=[0,.25,.5,.75,1].map(v=>'<line x1="'+left+'" x2="'+(W-right)+'" y1="'+y(total*v)+'" y2="'+y(total*v)+'" stroke="#35435b" stroke-dasharray="3 5"/><text x="'+(left-12)+'" y="'+(y(total*v)+4)+'" text-anchor="end" font-size="13" fill="#bbc8db">'+money(total*v)+'</text>').join('');
  const xticks=[0,Math.round(horizon/4),Math.round(horizon/2),Math.round(3*horizon/4),horizon].map(m=>'<text x="'+x(m)+'" y="'+(H-12)+'" text-anchor="middle" font-size="13" fill="#bbc8db">'+m+' mo</text>').join('');
- return '<div class="dp-chart-scroll"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Projected remaining credit card debt over '+horizon+' months. Purple is your selected plan; gray is minimum-only baseline." style="width:100%;height:auto;min-width:460px">'+ticks+'<path d="'+poly(baseline)+'" stroke="#94a3b8" stroke-width="3" stroke-dasharray="9 7" fill="none" stroke-linecap="round"/><path d="'+poly(scenario)+'" stroke="#a5b4fc" stroke-width="4" fill="none" stroke-linecap="round"/>'+xticks+'</svg></div><div class="dp-legend"><span><i class="dp-dot" style="background:#a5b4fc"></i>Selected strategy</span><span><i class="dp-dot" style="background:#94a3b8"></i>Minimum-only comparison</span></div>';
+ return '<div class="dp-chart-scroll"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Projected remaining credit card debt over '+horizon+' months. Purple is your selected plan; gray is minimum-only baseline." style="width:100%;height:auto;min-width:460px">'+ticks+'<path d="'+poly(baseline)+'" stroke="#94a3b8" stroke-width="3" stroke-dasharray="9 7" fill="none" stroke-linecap="round"/><path d="'+poly(scenario)+'" stroke="#a5b4fc" stroke-width="4" fill="none" stroke-linecap="round"/>'+xticks+'</svg></div><div class="dp-legend"><span><i class="dp-dot" style="background:#a5b4fc"></i>Selected strategy</span><span><i class="dp-dot" style="background:#94a3b8"></i>No-extra fixed-payment plan</span></div>';
 }
 function monthText(n){return n===null?'Not reached in model':n===0?'Already paid off':n+' months (approx. '+(n/12).toFixed(1)+' years)'}
 function result(state){
@@ -314,30 +330,43 @@ function result(state){
  const baseline=simulate(all,0,settings.strategy,settings.missingApr);
  const income=recurringIncome(state);
  const other=monthlyBills(state);
- const needs=other+min/100;
+ const groceriesWeekly=state.groceryWeekly!==undefined&&state.groceryWeekly!==null&&Number.isFinite(Number(state.groceryWeekly))?Math.max(0,Number(state.groceryWeekly)):100;
+ const groceriesMonthly=groceriesWeekly*52/12;
+ const needs=other+min/100+groceriesMonthly;
  const margin=income.total-needs;
+ const house=(state.bills||[]).filter(b=>!b.parent&&!b.budgetOnly&&String(b.name||'').trim().toLowerCase()==='house').reduce((sum,b)=>sum+(b.frequency==='Monthly'?Math.max(0,Number(b.amount)||0):0),0);
+ const availableWithoutHouse=margin+house;
  const canExtra=margin>=settings.extra;
  const top=[...all].sort((a,b)=>settings.strategy==='avalanche'?(b.apr===null?settings.missingApr:b.apr)-(a.apr===null?settings.missingApr:a.apr)||a.balance-b.balance:a.balance-b.balance);
  const savings=baseline.paidOff&&scenario.paidOff?(baseline.interest-scenario.interest)/100:null;
  let html='<div class="dp-metrics">'+[
-  ['Outstanding card debt',precise(total/100)],['Minimum card payments / month',precise(min/100)],
-  ['Approx. first month interest',precise(incl)],['Selected payoff horizon',monthText(scenario.months)]
+  ['Total credit-card debt',precise(total/100)],['Card minimums per month',precise(min/100)],
+  ['Est. first-month interest (APR ÷ 12)',precise(incl)],['Estimated payoff time',monthText(scenario.months)]
  ].map(pair=>'<div class="dp-stat"><small>'+esc(pair[0])+'</small><strong>'+esc(pair[1])+'</strong></div>').join('')+'</div>';
- html+='<div class="dp-budget '+(margin<0?'dp-warning':'')+'"><strong>Recorded recurring cash flow</strong><p>Estimated recurring income: '+precise(income.total)+'/month across '+income.series+' recorded pay schedule(s). Listed non-card bills: '+precise(other)+'/month. Card minimums: '+precise(min/100)+'/month. <strong>Difference: '+precise(margin)+'/month.</strong></p>';
- if(income.series===0)html+='<p>There are no recorded recurring paycheck schedules. Income needs to be entered before affordability can be assessed.</p>';
- else if(margin<0)html+='<p><strong>Warning:</strong> Recorded recurring income does not cover listed bills plus card minimums. Add any missing household paychecks and review actual monthly expenses before making extra payments.</p>';
- else if(!canExtra)html+='<p><strong>Warning:</strong> The selected extra payment exceeds the surplus shown by recorded income and bills. Do not commit to it until actual cash flow is verified.</p>';
- else html+='<p>The selected extra payment is within the surplus currently recorded, but verify the figures against real account balances.</p>';
+ html+='<div class="dp-budget '+(margin<0?'dp-warning':'')+'"><strong>Monthly cash-flow check — based on saved recurring records</strong>';
+ html+='<p class="hint">These are <strong>monthly averages</strong>, not cash currently in your bank account. Future generated copies of recurring bills are not counted again.</p>';
+ const line=(name,value,positive=false)=>'<div class="dp-cashline"><span>'+esc(name)+'</span><b class="'+(positive?'dp-good':'')+'">'+(positive?'+':'−')+precise(Math.abs(value))+'</b></div>';
+ html+='<div class="dp-cashlines">'+line('Estimated take-home pay each month',income.total,true)+line('Recurring bills (not credit cards)',other)+line('Groceries ('+precise(groceriesWeekly)+'/week, monthly average)',groceriesMonthly)+line('Required card minimum payments',min/100)+'</div>';
+ html+='<div class="dp-cash-total '+(margin<0?'dp-negative':'')+'"><strong>Difference before gas, holiday spending and other unlisted costs</strong><strong>'+(margin<0?'−':'+')+precise(Math.abs(margin))+'/month</strong></div>';
+ if(house)html+='<p class="dp-house-note"><strong>House bill included:</strong> '+precise(house)+'/month, exactly as saved under Bills. Your November–December Dashboard excludes House, but a longer-term payoff plan cannot assume this bill disappears indefinitely. Excluding House would change this check to '+precise(availableWithoutHouse)+'/month <em>before other unlisted costs</em>. Verify the House amount and schedule.</p>';
+ if(income.series===0)html+='<p><strong>Paycheck information missing.</strong> Add recurring pay schedules before using these affordability figures.</p>';
+ else if(margin<0)html+='<p><strong>Planning warning:</strong> Currently listed recurring commitments exceed the estimated monthly income. Check bill amounts and missing expenses before planning extra card payments.</p>';
+ else if(!canExtra)html+='<p><strong>Planning warning:</strong> The extra payment is greater than the remaining amount shown from listed commitments. Do not rely on this estimate to set payments.</p>';
+ else html+='<p>Some income remains after the <em>listed</em> costs. This is <strong>not free spending money</strong>; gas, Christmas, household purchases, fees and unrecorded expenses have not been subtracted.</p>';
  html+='</div>';
- if(missing.length||zero.length||over.length)html+='<div class="dp-warning"><strong>Check these details:</strong> '+[
-  missing.length?missing.length+' card(s) have no APR entered ('+missing.map(c=>esc(c.name)).join(', ')+'). The scenario uses '+settings.missingApr+'% for them; that is an assumption, not the actual rate.':'',
-  zero.length?zero.length+' card(s) show 0% APR. Confirm whether that rate is temporary.':'',
-  over.length?over.length+' card(s) are above their entered credit limits.':''
- ].filter(Boolean).join(' ')+'</div>';
+ const dateConflicts=(state.debts||[]).filter(d=>d.due&&d.dueDay&&Number(String(d.due).slice(-2))!==Number(d.dueDay));
+ const dateMissing=(state.debts||[]).filter(d=>Number(d.balance)>0&&!d.due);
+ const detailChecks=[];
+ if(missing.length)detailChecks.push('Missing APR: '+missing.map(c=>c.name).join(', ')+'. An estimated '+settings.missingApr+'% is used for each missing APR in the simulation.');
+ if(zero.length)detailChecks.push('Recorded 0% APR: '+zero.map(c=>c.name).join(', ')+'. Confirm whether the rate is promotional and when it expires.');
+ if(dateMissing.length)detailChecks.push('Cards without an actual next due date: '+dateMissing.map(d=>String(d.name||'Card')).join(', ')+'. The payment model uses minimum amounts, but cash scheduling needs dates.');
+ if(dateConflicts.length)detailChecks.push('Conflicting due date versus saved due day: '+dateConflicts.map(d=>String(d.name||'Card')+' ('+d.due+' vs day '+d.dueDay+')').join(', ')+'. Confirm the correct date in Debt & Credit.');
+ if(over.length)detailChecks.push(over.length+' card(s) are above their entered credit limits: '+over.map(c=>c.name).join(', ')+'. Check entered balances and limits.');
+ if(detailChecks.length)html+='<details class="dp-warning dp-data-details"><summary><strong>Check saved credit-card details ('+detailChecks.length+' items)</strong></summary><ul>'+detailChecks.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul></details>';
  html+='<h3>Projected remaining card debt</h3>';
- html+='<p class="hint">The purple line assumes the same total card payment continues each month even after individual cards are paid off. The gray line shows the recorded minimum-payment total without additional money. Both are modeled estimates, not bank statements.</p>';
+ html+='<p class="hint">The purple line assumes you keep paying the starting total of card minimums plus any extra amount each month, redirecting payments when cards are paid off. The gray line keeps the <strong>same starting card-payment total every month</strong>, without extra money. It is <strong>not</strong> a literal simulation of changing future minimum payments. Both lines are estimates, not bank statements.</p>';
  html+=plot(baseline,scenario,total);
- html+='<div class="dp-comparison"><div><small>Minimum-only strategy</small><strong>'+monthText(baseline.months)+'</strong></div><div><small>Selected strategy</small><strong>'+monthText(scenario.months)+'</strong></div><div><small>Estimated interest saved versus minimum-only</small><strong>'+(savings===null?'Not calculable':precise(Math.max(0,savings)))+'</strong></div></div>';
+ html+='<div class="dp-comparison"><div><small>No-extra monthly payment plan</small><strong>'+monthText(baseline.months)+'</strong></div><div><small>Selected strategy</small><strong>'+monthText(scenario.months)+'</strong></div><div><small>Estimated interest saved versus no extra</small><strong>'+(savings===null?'Not calculable':precise(Math.max(0,savings)))+'</strong></div></div>';
  html+='<h3>Which cards to target</h3><p class="hint">Pay at least each card’s required minimum. Put additional money toward the first target below, then move to the next. This is the priority order, not a promise of the order each card will close.</p>';
  html+='<div class="dp-targets">'+top.slice(0,6).map((d,i)=>'<div class="dp-target"><span class="dp-number">'+(i+1)+'</span><div><strong>'+esc(d.name)+'</strong><small>'+ (d.apr===null?'Unknown APR ('+settings.missingApr+'% scenario)':d.apr.toFixed(2)+'% APR')+'</small></div><b>'+precise(d.balance/100)+'</b></div>').join('')+'</div>';
  html+='<p class="hint">Assumptions: no new card charges or fees; unchanged APRs; monthly interest approximated as APR ÷ 12; payments made monthly; no missed payments; current minimums and the full initial monthly card-payment budget continue to be paid, even as individual debts reach $0. Your actual minimum payments, statement dates, promotions, and interest will vary. This chart does not schedule or make any payments.</p>';
@@ -345,7 +374,7 @@ function result(state){
 }
 function render(state){
  const all=cards(state);
- return '<section id="debtPlanner"><div class="dp-intro">Explore a debt-free path using <strong>your signed-in household’s current card data</strong>. The controls below model scenarios only; changing them will not change account balances or schedule a payment.</div>'+
+ return '<section id="debtPlanner"><div class="dp-intro">Explore a debt-free path using <strong>your signed-in household’s current card data</strong>. The controls below model scenarios only; changing them will not change account balances or schedule a payment. The figures here refer to <strong>credit-card debt</strong>, not your bank balance.</div>'+
  '<div class="dp-controls"><label class="field">Payoff approach<select id="dpStrategy"><option value="avalanche"'+(settings.strategy==='avalanche'?' selected':'')+'>Highest APR first (avalanche)</option><option value="snowball"'+(settings.strategy==='snowball'?' selected':'')+'>Smallest balance first (snowball)</option></select></label>'+
  '<label class="field">Extra card payment each month ($)<input id="dpExtra" type="number" min="0" max="10000" step="25" value="'+settings.extra+'"></label>'+
  '<label class="field">Assumed APR for missing rates (%)<input id="dpUnknown" type="number" min="0" max="100" step="0.25" value="'+settings.missingApr+'"></label></div>'+
@@ -1122,8 +1151,8 @@ function editingPanel(){
  return '';
 }
 function render(){const confirm=$('#confirmation');confirm.innerHTML=pendingAction?`<div class="notice error"><strong>${pendingAction.type==='reset'?'Reset to an empty budget?':'Import backup and replace current budget?'}</strong> This replaces the shared household budget for all members. <div class="tools" style="margin-top:10px"><button type="button" class="danger-btn" data-confirm-action>Yes, replace budget</button><button type="button" data-cancel-action>Cancel</button></div></div>`:'';const unpaid=obligations(),out=sum(unpaid),paid=sum(state.transactions.filter(t=>['expense','debt'].includes(t.kind))),income=sum(state.paychecks),flow=cashFlow();
- const cards=[['Projected balance',num(state.opening+income-paid-out)],['Estimated balance today',flow.now],['Lowest balance · next 30 days',flow.smallest],['Unpaid bills & payments',out]];
- $('#stats').innerHTML=tab==='Dashboard'?'':cards.map(([name,value])=>`<div class="card"><small>${esc(name)}</small><strong class="${value<0?'bad':''}">${money(value)}</strong></div>`).join('');
+ const cards=[['Projected balance',num(state.opening+income-paid-out)],['Estimated balance today',flow.now],['Lowest projected household cash · next 30 days',flow.smallest],['Unpaid bills & payments',out]];
+ $('#stats').innerHTML=['Dashboard','Forecast','Debt Payoff'].includes(tab)?'':cards.map(([name,value])=>`<div class="card"><small>${esc(name)}</small><strong class="${value<0?'bad':''}">${money(value)}</strong></div>`).join('');
  $('#tabs').innerHTML=tabs.map(t=>`<button data-tab="${esc(t)}" class="${t===tab?'active':''}">${esc(t)}</button>`).join('');
  let html=`<h2>${esc(tab)}</h2>`;
  if(tab==='Dashboard'){html+=window.DecemberForecast.dashboard(state)}
