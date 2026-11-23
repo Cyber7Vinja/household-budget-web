@@ -1,0 +1,8 @@
+# Render free static website: no database and no personal financial records in source.
+services:
+  - type: web
+    name: household-budget-web
+    runtime: static
+    buildCommand: mkdir -p public && cp index.html public/index.html
+    staticPublishPath: ./public
+    autoDeployTrigger: commit
