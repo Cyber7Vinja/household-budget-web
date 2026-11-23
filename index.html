@@ -59,6 +59,48 @@
 @media(max-width:930px){.dec-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.dec-inputs{grid-template-columns:1fr}.dec-stats{gap:8px}.dec-stat{padding:11px}.dec-stat strong{font-size:16px}.dec-event{grid-template-columns:50px minmax(0,1fr) auto;gap:7px}.dec-event strong{font-size:13px}}
 
+
+/* Combined November–December forecast, week ending balances and grocery guidance */
+.dec-weeks{border:1px solid #3a4f6d;border-radius:13px;overflow:hidden;display:grid}
+.dec-week-header,.dec-week{display:grid;grid-template-columns:1.15fr 1fr .85fr 1.6fr;gap:14px;align-items:start;padding:14px 16px}
+.dec-week-header{background:#21314a;color:#cbd9ee;font-size:12px;font-weight:700;letter-spacing:.02em}
+.dec-week{border-top:1px solid #35465e;background:#151f30}
+.dec-week:nth-child(2n+1){background:#182638}
+.dec-week>div{min-width:0}
+.dec-week strong{display:block;overflow-wrap:anywhere}
+.dec-week small{display:block;color:#b7c7dc;font-size:12px;line-height:1.5;margin-top:5px}
+.dec-week-close{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums}
+.dec-grocery{display:inline-flex;font-size:12px;font-weight:800;border:1px solid #52657e;padding:3px 9px;border-radius:999px}
+.dec-light{color:#ffceae;border-color:#8e7159;background:#483328}
+.dec-heavy{color:#acf3d0;border-color:#528c70;background:#224638}
+.dec-regular{color:#c6d7fa;border-color:#617aab;background:#253b5a}
+.dec-grocery-dollar{margin-top:6px;font-size:18px;font-variant-numeric:tabular-nums}
+.dec-breakdowns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.dec-breakdown{border-radius:12px;border:1px solid #3c4e67;background:#131f30;padding:15px;display:grid;gap:10px}
+.dec-breakdown>strong{font-size:16px}
+.dec-breakdown>div{display:flex;justify-content:space-between;gap:12px;color:#c9d5e6;font-size:13px}
+.dec-breakdown b{white-space:nowrap;color:#f0f5ff}
+.dec-breakdown .dec-total{border-top:1px solid #40516b;padding-top:12px;font-weight:800;color:#fff}
+.dec-check{display:flex;align-items:center;gap:10px;margin-top:12px;line-height:1.5;color:#dce8fa}
+.dec-check input[type="checkbox"]{width:18px;height:18px;min-height:18px;accent-color:#879bee;margin:0;flex:0 0 18px}
+.dec-details{border:1px solid #435776;background:#151e2b;padding:12px;border-radius:10px}
+.dec-details summary{cursor:pointer;font-weight:700}
+.dec-details .dec-event-list{margin-top:13px}
+@media(max-width:900px){
+ .dec-week-header{display:none}
+ .dec-week{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ .dec-week-close{font-size:19px}
+}
+@media(max-width:600px){
+ .dec-breakdowns{grid-template-columns:1fr}
+ .dec-week{padding:13px;gap:12px}
+ .dec-week small{font-size:11px}
+ .dec-week-close{font-size:17px}
+ .dec-grocery-dollar{font-size:16px}
+ .dec-result{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+ .dec-result strong{font-size:22px}
+}
+
 </style></head><body>
 <div id="authScreen" class="auth-wrap"><div class="auth-card"><h1>Household Budget</h1><h2>Private access</h2><p id="authNote" class="auth-note">Sign in to see your private budget. The website does not publish card balances or transactions.</p>
 <div id="loginFields"><form id="authForm" novalidate><label class="field">Email<input id="loginEmail" type="email" autocomplete="email" required></label><label class="field">Password<input id="loginPassword" type="password" autocomplete="current-password" minlength="12" required></label><button id="signin" class="primary" type="button">Sign in</button><button id="signup" type="button">Create household login</button></form></div>
@@ -223,154 +265,247 @@ window.DebtPlanner={render,bind,simulate,cards};
 </script><script>
 (()=>{
 'use strict';
-const MON='2026-12',END='2026-12-31',DAY=86400000;
-const cash=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format((Number(n)||0)/100);
-const escaped=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const amt=n=>Math.round(Math.max(0,Number(n)||0)*100);
-const dt=s=>Date.parse(String(s)+'T00:00:00Z');
-const good=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))&&!Number.isNaN(dt(s));
-const inDec=s=>good(s)&&s.slice(0,7)===MON;
-const iso=t=>new Date(t).toISOString().slice(0,10);
-const dayInMonth=d=>{const day=Math.min(31,Math.max(1,Number(d)||1));return MON+'-'+String(day).padStart(2,'0');};
-const fmt=s=>new Date(dt(s)).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
-const ui={opening:null,unlisted:0};
+// Scenario-only cash flow: no budget write, no embedded household data.
+const START='2026-11-23',END='2026-12-31',DAY=86400000;
+const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format((Number(n)||0)/100);
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cents=n=>Math.round(Math.max(0,Number(n)||0)*100);
+const time=s=>Date.parse(String(s)+'T00:00:00Z');
+const dateOK=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))&&!Number.isNaN(time(s));
+const iso=ms=>new Date(ms).toISOString().slice(0,10);
+const add=(s,n)=>iso(time(s)+n*DAY);
+const fmt=s=>new Date(time(s)).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+const monthEnd=(year,month)=>new Date(Date.UTC(year,month,0)).getUTCDate();
+const dayAt=(year,month,day)=>year+'-'+String(month).padStart(2,'0')+'-'+String(Math.min(monthEnd(year,month),day)).padStart(2,'0');
+const between=d=>d>=START&&d<=END;
+const ui={opening:null,weekly:100,buffer:500,novExtra:0,decExtra:0,novUndated:false};
 function datesFor(item){
- const d=item.date,f=item.frequency;
- if(!good(d))return [];
- if(f==='One-time'||!f)return inDec(d)?[d]:[];
- if(f==='Monthly'){
-  const [y,m,day]=d.split('-').map(Number);
-  return (2026-y)*12+(12-m)>=0?[dayInMonth(day)]:[];
+ if(!dateOK(item.date))return [];
+ const anchor=item.date,frequency=item.frequency||'One-time',out=[];
+ if(frequency==='One-time')return between(anchor)?[anchor]:[];
+ if(frequency==='Weekly'||frequency==='Biweekly'){
+  const step=(frequency==='Weekly'?7:14)*DAY;
+  const first=Math.max(0,Math.ceil((time(START)-time(anchor))/step));
+  for(let n=first;n<first+8;n++){const d=iso(time(anchor)+n*step);if(d>END)break;if(between(d))out.push(d);}
+ }else if(frequency==='Monthly'||frequency==='Twice monthly'){
+  const [y,m,day]=anchor.split('-').map(Number);
+  for(const [yr,mo] of [[2026,11],[2026,12]]){
+   if((yr-y)*12+mo-m<0)continue;
+   if(frequency==='Monthly'){const date=dayAt(yr,mo,day);if(date>=anchor&&between(date))out.push(date);}
+   else{
+    const first=day<=15?day:Math.max(1,day-15),second=Math.min(28,first+15);
+    for(const d of [dayAt(yr,mo,first),dayAt(yr,mo,second)])if(d>=anchor&&between(d)&&!out.includes(d))out.push(d);
+   }
+  }
  }
- if(f==='Weekly'||f==='Biweekly'){
-  const period=(f==='Weekly'?7:14)*DAY;
-  const anchor=dt(d),start=dt(MON+'-01'),end=dt(END);
-  let n=Math.max(0,Math.ceil((start-anchor)/period));
-  const out=[];
-  for(let i=0;i<6;i++){const at=anchor+(n+i)*period;if(at>end)break;if(at>=start)out.push(iso(at));}
-  return out;
- }
- if(f==='Twice monthly'){
-  const [y,m,day]=d.split('-').map(Number);
-  if((2026-y)*12+(12-m)<0)return [];
-  const first=day<=15?day:Math.max(1,day-15),second=Math.min(28,first+15);
-  return [...new Set([dayInMonth(first),dayInMonth(second)])].filter(x=>dt(x)>=dt(d));
- }
- return [];
+ return out;
 }
-function scheduled(items,kind,warnings){
- const rows=[],entries=Array.isArray(items)?items:[];
- const roots=entries.filter(x=>!x.parent),children=entries.filter(x=>x.parent);
- for(const base of roots){
+function datedEntries(entries,kind,warn,opt){
+ const all=Array.isArray(entries)?entries:[],parents=all.filter(x=>!x.parent),children=all.filter(x=>x.parent),result=[];
+ const include=(source,date,base)=>{const amount=cents(source.amount);if(amount)result.push({date,title:String(source.name||source.member||base.name||base.member||'Entry'),kind,amount:kind==='income'?amount:-amount,source:source.id});};
+ for(const base of parents){
   if(kind==='bill'&&base.budgetOnly)continue;
-  if(!amt(base.amount))continue;
-  const title=String(base.name||base.member||'Unnamed');
-  if(!good(base.date)){
-   if(kind==='bill'&&base.frequency!=='One-time'){
-    rows.push({date:null,kind,title,amount:-amt(base.amount),id:base.id});
-    warnings.push(title+' has no due date. Its cost is included, but the chart reserves it at month-end.');
-   }else warnings.push(title+' has no payment date and cannot be included reliably.');
+  if(!cents(base.amount))continue;
+  if(!dateOK(base.date)){
+   const isRecurring=base.frequency&&base.frequency!=='One-time';
+   if(kind==='bill'&&isRecurring){
+    warn.push(String(base.name||'Bill')+' has no due date. December is reserved at month-end; check whether it is also still owed in November.');
+    include(base,END,base);
+    result[result.length-1].kind='undated';
+    if(opt.novUndated){include(base,'2026-11-30',base);result[result.length-1].kind='undated';}
+   }else warn.push(String(base.name||base.member||'Entry')+' has no date and cannot be reliably forecast.');
    continue;
   }
-  for(const date of datesFor(base)){
-   const source=children.find(ch=>ch.parent===base.id&&ch.date===date)||base;
-   const value=amt(source.amount);
-   if(value)rows.push({date,kind,title:String(source.name||source.member||title),amount:kind==='income'?value:-value,id:source.id});
+  for(const d of datesFor(base)){
+   const change=children.find(x=>x.parent===base.id&&x.date===d);
+   include(change||base,d,base);
   }
  }
- for(const item of children){
-  if(kind==='bill'&&item.budgetOnly)continue;
-  if(!inDec(item.date))continue;
-  const base=roots.find(p=>p.id===item.parent);
-  if(base&&datesFor(base).includes(item.date))continue;
-  rows.push({date:item.date,kind,title:String(item.name||item.member||'Adjusted entry'),amount:(kind==='income'?1:-1)*amt(item.amount),id:item.id});
-  warnings.push('A separately dated generated '+kind+' entry was included; check for duplicate schedules.');
+ for(const ch of children){
+  if(kind==='bill'&&ch.budgetOnly)continue;
+  if(!dateOK(ch.date)||!between(ch.date))continue;
+  const parent=parents.find(x=>x.id===ch.parent);
+  if(parent&&datesFor(parent).includes(ch.date))continue;
+  include(ch,ch.date,parent||ch);
+  warn.push('An adjusted '+kind+' date was included separately; check for overlapping entries.');
  }
- return rows.filter(e=>e.amount!==0);
+ return result;
 }
-function forecast(state,openingArg=ui.opening,unlistedArg=ui.unlisted){
- const warn=[],rows=[];
- rows.push(...scheduled(state.paychecks,'income',warn));
- rows.push(...scheduled(state.bills,'bill',warn));
- for(const card of state.debts||[]){
-  if(!(Number(card.balance)>0)||!amt(card.minimum))continue;
-  let day=null;
-  if(good(card.due))day=Number(card.due.slice(-2));
-  else if(Number(card.dueDay)>=1&&Number(card.dueDay)<=31){
-   day=Number(card.dueDay);
-   warn.push(card.name+' has no full due date; used its recorded day of month.');
-  }else warn.push(card.name+' has no due date; its minimum was counted as undated.');
-  rows.push({date:day?dayInMonth(day):null,kind:'minimum',title:String(card.name||'Debt')+' minimum',amount:-amt(card.minimum),id:card.id});
- }
- const pays=state.paychecks||[];
- for(const extra of state.extras||[]){
-  const p=pays.find(p=>p.id===extra.pay);
-  const when=good(extra.date)?extra.date:(p&&good(p.date)?p.date:null);
-  if(inDec(when))rows.push({date:when,kind:'extra',title:'Extra debt payment',amount:-amt(extra.amount),id:extra.id});
-  else if(amt(extra.amount))warn.push('An extra debt payment has no December date and is not counted.');
- }
- const sourceIds=new Set([...(state.bills||[]),...(state.debts||[]),...(state.extras||[])].map(e=>e.id));
- for(const transaction of state.transactions||[]){
-  if(inDec(transaction.date)&&!sourceIds.has(transaction.source)&&['expense','debt'].includes(transaction.kind))
-   rows.push({date:transaction.date,kind:'other',title:String(transaction.name||'Other expense'),amount:-amt(transaction.amount),id:transaction.id});
- }
- const sum=kind=>rows.filter(e=>e.kind===kind).reduce((s,e)=>s+e.amount,0);
- const income=sum('income'),bills=-sum('bill'),minimums=-sum('minimum'),extras=-sum('extra'),other=-sum('other');
- const unlisted=amt(unlistedArg),opening=Math.round((Number(openingArg===null?state.opening:openingArg)||0)*100);
- const net=income-bills-minimums-extras-other-unlisted,closing=opening+net;
- const undated=rows.filter(e=>!e.date);
- const dated=rows.filter(e=>e.date);
- for(const e of undated)dated.push({...e,date:END,kind:'reserved',title:e.title+' (due date missing)'});
- if(unlisted)dated.push({date:END,kind:'reserved',title:'What-if unlisted spending',amount:-unlisted});
- dated.sort((a,b)=>a.date.localeCompare(b.date)||((a.kind==='reserved')-(b.kind==='reserved'))||b.amount-a.amount);
- let running=opening;const days=[],events=[];
- for(let d=1;d<=31;d++){
-  const date=dayInMonth(d);
-  for(const e of dated.filter(x=>x.date===date)){running+=e.amount;events.push({...e,balance:running});}
-  days.push({date,balance:running});
- }
- if(running!==closing)warn.push('Forecast mismatch: the summary and chart differ.');
- return {income,bills,minimums,extras,other,unlisted,net,opening,closing,undated,events,days,warnings:[...new Set(warn)]};
+function weeks(){
+ const r=[];for(let day=START;day<=END;day=add(day,7)){const weekEnd=add(day,6);r.push({start:day,end:weekEnd>END?END:weekEnd});}return r;
 }
-function graph(f){
- const W=920,H=290,L=85,R=22,T=21,B=43,values=f.days.map(x=>x.balance/100).concat([0,f.opening/100]);
- let lo=Math.min(...values),hi=Math.max(...values),padding=Math.max(100,(hi-lo)*0.12);lo-=padding;hi+=padding;
- const x=day=>L+(W-L-R)*(day-1)/30,y=val=>T+(H-T-B)*(hi-val)/(hi-lo);
- const path=f.days.map((p,i)=>(i?'L':'M')+x(i+1).toFixed(1)+','+y(p.balance/100).toFixed(1)).join(' ');
- const grid=[0,.25,.5,.75,1].map(frac=>{const v=lo+frac*(hi-lo),Y=y(v).toFixed(1);return '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y+'" y2="'+Y+'" stroke="#40516e" stroke-dasharray="3 6"/><text x="'+(L-11)+'" y="'+(Number(Y)+4)+'" text-anchor="end" fill="#ccd7e8" font-size="12">'+escaped(new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',notation:'compact',maximumFractionDigits:1}).format(v))+'</text>'}).join('');
- const labels=[1,7,14,21,28,31].map(d=>'<text x="'+x(d).toFixed(1)+'" y="'+(H-11)+'" text-anchor="middle" fill="#ccd7e8" font-size="13">Dec '+d+'</text>').join('');
- const zero=lo<0&&hi>0?'<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(0)+'" y2="'+y(0)+'" stroke="#f59e9e" stroke-dasharray="5 5"/>':'';
- return '<div class="dec-chart"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="December cash balance by day, with undated expenses reserved on December 31 only for display" style="width:100%;min-width:560px;height:auto">'+grid+zero+'<path d="'+path+'" fill="none" stroke="#8ad5f5" stroke-width="4" stroke-linejoin="round"/>'+labels+'</svg></div>';
+function makeForecast(state,options={}){
+ const opt={...ui,...options};
+ const warn=[],events=[];
+ events.push(...datedEntries(state.paychecks,'income',warn,opt));
+ events.push(...datedEntries(state.bills,'bill',warn,opt));
+ for(const d of state.debts||[]){
+  if(!(Number(d.balance)>0)||!cents(d.minimum))continue;
+  const label=String(d.name||'Credit card');
+  let dates=[];
+  if(dateOK(d.due)){
+   dates=datesFor({date:d.due,frequency:'Monthly'});
+   if(Number(d.dueDay)>=1&&Number(d.dueDay)<=31&&Number(d.due.slice(-2))!==Number(d.dueDay)){
+    warn.push(label+' has a due-date/day mismatch; the full dated value is used.');
+   }
+  }else if(Number(d.dueDay)>=1&&Number(d.dueDay)<=31){
+   dates=[dayAt(2026,12,Number(d.dueDay))];
+   warn.push(label+' has no full due date; only its saved day-of-month was used for December.');
+  }else{
+   dates=[END];
+   warn.push(label+' is missing its due date; the minimum is reserved on December 31.');
+  }
+  for(const day of dates)events.push({date:day,kind:dateOK(d.due)?'minimum':'minimum-estimated',title:label+' minimum',amount:-cents(d.minimum),source:d.id});
+ }
+ const assigned=new Set([...(state.bills||[]),...(state.debts||[]),...(state.extras||[])].map(x=>x.id).filter(Boolean));
+ for(const x of state.extras||[]){
+  const parent=(state.paychecks||[]).find(p=>p.id===x.pay);
+  const d=dateOK(x.date)?x.date:(parent&&dateOK(parent.date)?parent.date:null);
+  if(d&&between(d))events.push({date:d,kind:'extra',title:'Extra debt payment',amount:-cents(x.amount),source:x.id});
+  else if(cents(x.amount))warn.push('An extra payment without a date in this period is excluded.');
+ }
+ for(const x of state.transactions||[]){
+  if(!dateOK(x.date)||!between(x.date)||assigned.has(x.source)||!['expense','debt'].includes(x.kind))continue;
+  events.push({date:x.date,kind:'transaction',title:String(x.name||'Transaction'),amount:-cents(x.amount),source:x.id});
+ }
+ const opening=Math.round(Number(opt.opening===null?state.opening:opt.opening||0)*100);
+ const reserve=(date,amount,label)=>{const v=cents(amount);if(v)events.push({date,kind:'reserve',title:label,amount:-v});};
+ reserve('2026-11-30',opt.novExtra,'Other November spending (what-if)');
+ reserve(END,opt.decExtra,'Other December spending (what-if)');
+ const grossTotals=month=>({
+  income:events.filter(e=>e.date.startsWith(month)&&e.kind==='income').reduce((s,e)=>s+e.amount,0),
+  bill:events.filter(e=>e.date.startsWith(month)&&['bill','undated'].includes(e.kind)).reduce((s,e)=>s-e.amount,0),
+  minimum:events.filter(e=>e.date.startsWith(month)&&e.kind.startsWith('minimum')).reduce((s,e)=>s-e.amount,0),
+  other:events.filter(e=>e.date.startsWith(month)&&['extra','transaction','reserve'].includes(e.kind)).reduce((s,e)=>s-e.amount,0)
+ });
+ const calcBase={nov:grossTotals('2026-11'),dec:grossTotals('2026-12')};
+ const scenario=weeks(),baseDays=[],byDate=new Map();
+ for(const e of events){if(!byDate.has(e.date))byDate.set(e.date,[]);byDate.get(e.date).push(e);}
+ let running=opening;
+ for(let d=START;d<=END;d=add(d,1)){
+  for(const e of byDate.get(d)||[])running+=e.amount;
+  baseDays.push({date:d,balance:running});
+ }
+ const baseMap=new Map(baseDays.map(e=>[e.date,e.balance]));
+ const weeklyBase=cents(opt.weekly),buffer=cents(opt.buffer);
+ let spentGroceries=0,carriedGroceryAllowance=0;
+ const groceryEvents=[];
+ for(const w of scenario){
+  const previous=w.start===START?opening:(baseMap.get(add(w.start,-1))??opening)-spentGroceries;
+  const lookout=add(w.end,7)>END?END:add(w.end,7);
+  const future=baseDays.filter(d=>d.date>=w.start&&d.date<=lookout).map(d=>d.balance-spentGroceries);
+  const lowest=Math.min(previous,...future);
+  let mode='Not set',factor=0,reason='Set a weekly grocery budget to see shopping recommendations.';
+  if(weeklyBase>0){
+   if(lowest<buffer+weeklyBase*1.5){mode='Light';factor=0.6;reason='Tight cash ahead or below your safety cushion: buy essentials and avoid a stock-up.';}
+   else if(lowest>=buffer+weeklyBase*5 && carriedGroceryAllowance>=Math.round(weeklyBase*.4)){mode='Stock-up';factor=1.4;reason='A lighter grocery week saved enough allowance for this larger trip, and the projected cash cushion can support it.';}
+   else {mode='Regular';factor=1;reason='Allow a normal grocery trip while keeping cash for upcoming bills.';}
+  }
+  const cost=Math.round(weeklyBase*factor);
+  carriedGroceryAllowance=Math.max(0,carriedGroceryAllowance+weeklyBase-cost);
+  w.mode=mode;w.cost=cost;w.why=reason;w.forwardLowest=lowest;
+  if(cost){groceryEvents.push({date:w.start,kind:'grocery',title:mode+' grocery trip (scenario)',amount:-cost});spentGroceries+=cost;}
+ }
+ const all=events.concat(groceryEvents);
+ const eventMap=new Map();
+ for(const e of all){if(!eventMap.has(e.date))eventMap.set(e.date,[]);eventMap.get(e.date).push(e);}
+ for(const v of eventMap.values())v.sort((a,b)=>b.amount-a.amount);
+ const days=[],detail=[];
+ running=opening;
+ for(let d=START;d<=END;d=add(d,1)){
+  for(const e of eventMap.get(d)||[]){running+=e.amount;detail.push({...e,balance:running});}
+  days.push({date:d,balance:running});
+ }
+ const dmap=new Map(days.map(d=>[d.date,d.balance]));
+ for(const w of scenario){
+  const observations=days.filter(d=>d.date>=w.start&&d.date<=w.end);
+  const openingBalance=w.start===START?opening:dmap.get(add(w.start,-1));
+  w.close=dmap.get(w.end);
+  w.low=Math.min(openingBalance,...observations.map(d=>d.balance));
+  w.high=Math.max(openingBalance,...observations.map(d=>d.balance));
+  w.income=detail.filter(e=>e.kind==='income'&&e.date>=w.start&&e.date<=w.end).reduce((s,e)=>s+e.amount,0);
+  w.bills=-detail.filter(e=>e.amount<0&&e.kind!=='grocery'&&e.date>=w.start&&e.date<=w.end).reduce((s,e)=>s+e.amount,0);
+ }
+ const grocNov=-groceryEvents.filter(e=>e.date.startsWith('2026-11')).reduce((s,e)=>s+e.amount,0);
+ const grocDec=-groceryEvents.filter(e=>e.date.startsWith('2026-12')).reduce((s,e)=>s+e.amount,0);
+ const novClose=dmap.get('2026-11-30'),decClose=dmap.get(END);
+ const excludingGroceries={nov:calcBase.nov.income-calcBase.nov.bill-calcBase.nov.minimum-calcBase.nov.other,dec:calcBase.dec.income-calcBase.dec.bill-calcBase.dec.minimum-calcBase.dec.other};
+ const observed=days.map(d=>({date:d.date,value:d.balance}));
+ const high=observed.reduce((a,b)=>b.value>a.value?b:a);
+ const low=observed.reduce((a,b)=>b.value<a.value?b:a);
+ const negatives=days.filter(d=>d.balance<0);
+ if(negatives.length)warn.push('One or more projected days fall below $0. A positive month-end amount does not guarantee bills can be covered on time.');
+ if(opt.weekly===100)warn.push('The $100 weekly grocery figure is an example, not a recorded expense. Change it to your actual plan.');
+ if(!opt.novUndated)warn.push('Undated recurring bills (including housing) are NOT charged in November. Enable the November reserve if they are still owed.');
+ warn.push('Starting cash is not date-stamped in your budget. Confirm the amount available BEFORE November 23 paychecks and payments to prevent double-counting.');
+ const summary={opening,nov:calcBase.nov,dec:calcBase.dec,novClose,decClose,grocNov,grocDec,excludingGroceries,high,low,negativeDays:negatives.length};
+ return {summary,days,weeks:scenario,events:detail,warnings:[...new Set(warn)],options:opt};
+}
+function plot(f){
+ const W=980,H=374,L=91,R=31,T=44,B=65;
+ const all=f.days.map(d=>d.balance).concat([f.summary.opening]);
+ const min=Math.min(...all,0),max=Math.max(...all,0);
+ const extent=Math.max(150000,max-min),lo=min-extent*.10,hi=max+extent*.13;
+ const X=i=>L+(W-L-R)*i/(f.days.length-1);
+ const Y=v=>T+(H-T-B)*(hi-v)/(hi-lo);
+ const stepPath=f.days.map((d,i)=>i===0?'M'+X(i).toFixed(1)+','+Y(d.balance).toFixed(1):'H'+X(i).toFixed(1)+'V'+Y(d.balance).toFixed(1)).join(' ');
+ const zero=lo<0&&hi>0?'<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(0).toFixed(1)+'" y2="'+Y(0).toFixed(1)+'" stroke="#ff9da5" stroke-width="2" stroke-dasharray="7 5"/>':'';
+ const ticks=[0,.25,.5,.75,1].map(p=>{const value=lo+(hi-lo)*p,y=Y(value);return '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="#35445e" stroke-dasharray="4 6"/><text x="'+(L-12)+'" y="'+(y+4)+'" text-anchor="end" font-size="13" fill="#c1cfe0">'+esc(new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',notation:'compact',maximumFractionDigits:1}).format(value/100))+'</text>'}).join('');
+ const labels=[0,6,13,20,27,34,38].map(i=>'<text x="'+X(i)+'" y="'+(H-16)+'" text-anchor="middle" font-size="13" fill="#c8d3e5">'+fmt(f.days[i].date)+'</text>').join('');
+ const divider=X(7)-((X(7)-X(6))/2);
+ const monthDivision='<line x1="'+divider+'" x2="'+divider+'" y1="'+T+'" y2="'+(H-B)+'" stroke="#d2a36d" stroke-width="2" stroke-dasharray="6 5"/><text x="'+(divider+8)+'" y="'+(T+8)+'" font-size="13" fill="#f1cf99">December</text>';
+ const points=f.weeks.map(w=>{const i=f.days.findIndex(d=>d.date===w.end);return '<circle cx="'+X(i)+'" cy="'+Y(w.close)+'" r="5" stroke="#ecf4ff" stroke-width="1.5" fill="#7e97e2"><title>'+fmt(w.end)+' week end: '+money(w.close)+'</title></circle>'}).join('');
+ function marker(hit,color,caption,position){
+  const i=f.days.findIndex(d=>d.date===hit.date),x=X(i),y=Y(hit.value),label=caption+' '+money(hit.value);
+  const width=Math.min(230,label.length*7.5+24),px=Math.max(L,Math.min(W-R-width,x-width/2));
+  const py=position==='above'?Math.max(1,y-56):Math.min(H-B-35,y+17);
+  return '<circle cx="'+x+'" cy="'+y+'" r="8" fill="'+color+'" stroke="#eef8ff" stroke-width="1.5"/><rect x="'+px+'" y="'+py+'" width="'+width+'" height="32" rx="7" fill="#101827" stroke="'+color+'"/><text x="'+(px+9)+'" y="'+(py+21)+'" font-size="14" fill="#f1f6ff">'+esc(label)+'</text>';
+ }
+ const high=marker(f.summary.high,'#82e2bd','HIGH',f.summary.high.value>f.summary.low.value?'above':'below');
+ const low=marker(f.summary.low,'#ffacac','LOW','below');
+ return '<div class="dec-chart" style="overflow:auto"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Projected remaining November and December cash balance, with labeled high and low and Sunday week ending markers" style="width:100%;min-width:650px;height:auto"><rect x="'+L+'" y="'+T+'" width="'+(W-R-L)+'" height="'+(H-T-B)+'" rx="8" fill="#132234"/>'+ticks+zero+monthDivision+'<path d="'+stepPath+'" stroke="#83d0f5" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'+points+high+low+labels+'</svg></div>';
 }
 function render(state){
- const f=forecast(state);
- let html='<section id="decForecast"><p class="dec-lede">Forecast based on <strong>your household’s live, signed-in budget data</strong>. No changes here will schedule a payment or alter card balances.</p>';
- const items=[['December paycheck income',f.income],['Bills, including one-time',-f.bills],['Credit card minimums',-f.minimums],['Net December change',f.net]];
- html+='<div class="dec-stats">'+items.map(([label,value])=>'<div class="dec-stat"><small>'+escaped(label)+'</small><strong class="'+(value<0?'dec-red':'')+'">'+(value<0?'−':'')+cash(Math.abs(value))+'</strong></div>').join('')+'</div>';
- html+='<div class="dec-result"><div><small>Conditional December 31 cash balance</small><strong>'+cash(f.closing)+'</strong><p>Assuming '+cash(f.opening)+' is the cash available <strong>December 1</strong>.</p></div><span>December surplus after listed commitments <b>'+cash(f.net)+'</b></span></div>';
- html+='<div class="dec-inputs"><label class="field">Starting cash on December 1 ($)<input id="decOpening" type="number" step="0.01" value="'+(ui.opening===null?Number(state.opening)||0:ui.opening)+'"></label><label class="field">Additional December spending ($)<input id="decUnlisted" type="number" min="0" step="10" value="'+ui.unlisted+'"></label></div>';
- html+='<p class="hint">What-if inputs affect only this forecast. Enter your actual December 1 balance for the best closing-balance estimate. No data is saved or modified.</p>';
- if(f.warnings.length)html+='<div class="dec-warnings"><strong>Items to verify</strong><ul>'+f.warnings.map(w=>'<li>'+escaped(w)+'</li>').join('')+'</ul></div>';
- html+='<h3>Cash-flow chart — December 1–31</h3><p class="hint">Undated expenses are deducted on December 31 as an accounting reserve, <strong>not a predicted payment date</strong>. Earlier balances may be overstated until those dates are entered.</p>'+graph(f);
- html+='<h3>December paychecks and payments</h3><div class="dec-event-list">'+f.events.map(e=>'<div class="dec-event"><span>'+fmt(e.date)+'</span><div><b>'+escaped(e.title)+'</b><small>'+escaped(e.kind==='income'?'Paycheck':e.kind==='minimum'?'Credit-card minimum':e.kind==='reserved'?'Undated reserve / what-if spending':e.kind==='bill'?'Bill':'Other payment')+'</small></div><strong class="'+(e.amount<0?'dec-red':'dec-green')+'">'+(e.amount>=0?'+':'−')+cash(Math.abs(e.amount))+'</strong></div>').join('')+'</div>';
- html+='<p class="hint">Assumes expected paychecks arrive on schedule, recurring bills repeat as entered, required debt minimums are paid, and no additional unrecorded charges occur. Does not reconcile transactions to bank statements. The app’s starting cash is not date-stamped, so the December 31 cash figure depends on your December 1 starting amount.</p></section>';
+ const f=makeForecast(state),s=f.summary,round=n=>money(n);
+ const cell=(label,value,css='')=>'<div class="dec-stat"><small>'+esc(label)+'</small><strong class="'+css+'">'+round(value)+'</strong></div>';
+ let html='<section id="decForecast"><div class="dec-lede"><strong>November 23 – December 31, 2026</strong>. This cash-flow scenario starts before the November 23 paycheck and carries November’s remaining cash into December. Groceries are a planning example, not existing bank transactions.</div>';
+ html+='<div class="dec-stats">'+cell('Starting cash (Nov 23)',s.opening)+cell('November 30 estimate',s.novClose,s.novClose<0?'dec-red':'')+cell('December 31 estimate',s.decClose,s.decClose<0?'dec-red':'')+cell('December net before groceries',s.excludingGroceries.dec,s.excludingGroceries.dec<0?'dec-red':'')+'</div>';
+ html+='<div class="dec-result"><div><small>Lowest projected day</small><strong class="'+(s.low.value<0?'dec-red':'')+'">'+round(s.low.value)+'</strong><p>'+fmt(s.low.date)+'</p></div><div><small>Highest projected day</small><strong>'+round(s.high.value)+'</strong><p>'+fmt(s.high.date)+'</p></div><div><small>Grocery scenario across both months</small><strong>'+round(s.grocNov+s.grocDec)+'</strong><p>November '+round(s.grocNov)+' · December '+round(s.grocDec)+'</p></div></div>';
+ html+='<div class="dec-inputs"><label class="field">Starting cash before Nov 23 entries ($)<input id="decOpening" type="number" step="0.01" value="'+(f.options.opening===null?Number(state.opening)||0:f.options.opening)+'"></label><label class="field">Weekly grocery example ($)<input id="decWeekly" type="number" min="0" max="5000" step="5" value="'+f.options.weekly+'"></label><label class="field">Minimum cash cushion ($)<input id="decBuffer" type="number" min="0" max="50000" step="50" value="'+f.options.buffer+'"></label><label class="field">Other spending through Nov 30 ($)<input id="decNovExtra" type="number" min="0" max="100000" step="10" value="'+f.options.novExtra+'"></label><label class="field">Other December spending ($)<input id="decDecExtra" type="number" min="0" max="100000" step="10" value="'+f.options.decExtra+'"></label><label class="field"><span>November housing or other undated monthly bills still unpaid?</span><span class="dec-check"><input type="checkbox" id="decNovUndated" '+(f.options.novUndated?'checked':'')+'> Reserve them in November too</span></label></div>';
+ html+='<p class="hint">These are <strong>what-if controls only</strong>. Nothing here changes your saved paychecks, debts, or bill dates. Week-ending balances include the example grocery plan; they are not verified bank balances.</p>';
+ html+='<h3>Cash highs and lows — with week-end markers</h3><p class="hint">The line changes when paychecks or expenses occur. Blue dots mark each week ending. Green and pink markers identify the highest and lowest end-of-day balances. The first week’s low also considers starting cash before November 23 activity, and your intraday balance may differ.</p>'+plot(f);
+ html+='<h3>Week-ending balances and grocery-shopping guidance</h3><div class="dec-weeks"><div class="dec-week-header"><span>Week ending</span><span>Week low / high</span><span>Ending cash</span><span>Grocery plan</span></div>';
+ for(const w of f.weeks){
+  const css=w.mode==='Light'?'dec-light':w.mode==='Stock-up'?'dec-heavy':'dec-regular';
+  html+='<div class="dec-week"><div><strong>'+fmt(w.start)+'–'+fmt(w.end)+'</strong><small>+ '+round(w.income)+' income · − '+round(w.bills)+' bills/cards</small></div><div><span class="dec-red">Low '+round(w.low)+'</span><small>High '+round(w.high)+'</small></div><div class="dec-week-close '+(w.close<0?'dec-red':'')+'">'+round(w.close)+'</div><div><span class="dec-grocery '+css+'">'+esc(w.mode)+'</span><strong class="dec-grocery-dollar">'+round(w.cost)+'</strong><small>'+esc(w.why)+'</small></div></div>';
+ }
+ html+='</div><p class="hint">“Stock-up” means a <strong>larger grocery trip</strong> looks more practical based on the projected cash cushion. “Light” means a smaller essentials-focused trip. Shopping is placed at the beginning of each displayed week, for forecasting only. Stock-up recommendations use unused grocery allowance from earlier light trips; they do not increase the overall example budget. A weekly example budget of $100 is used until you adjust it.</p>';
+ const breakdown=(label,obj,grocery)=>'<div class="dec-breakdown"><strong>'+label+'</strong><div>Expected paychecks <b>'+round(obj.income)+'</b></div><div>Bills and one-time charges <b>−'+round(obj.bill)+'</b></div><div>Card minimums <b>−'+round(obj.minimum)+'</b></div><div>Other spending/extra debt <b>−'+round(obj.other)+'</b></div><div>Example groceries <b>−'+round(grocery)+'</b></div><div class="dec-total">Net change <b>'+round(obj.income-obj.bill-obj.minimum-obj.other-grocery)+'</b></div></div>';
+ html+='<h3>November-to-December rollover</h3><div class="dec-breakdowns">'+breakdown('Remaining November',s.nov,s.grocNov)+breakdown('December',s.dec,s.grocDec)+'</div>';
+ if(f.warnings.length)html+='<div class="dec-warnings"><strong>Dates and assumptions to verify</strong><ul>'+f.warnings.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>';
+ html+='<details class="dec-details"><summary>Show all paychecks, bills, cards and shopping assumptions</summary><div class="dec-event-list">'+f.events.map(e=>'<div class="dec-event"><span>'+fmt(e.date)+'</span><div><b>'+esc(e.title)+'</b><small>'+esc(e.kind)+'</small></div><strong class="'+(e.amount<0?'dec-red':'dec-green')+'">'+(e.amount>=0?'+':'−')+round(Math.abs(e.amount))+'</strong></div>').join('')+'</div></details>';
+ html+='<p class="hint">This is a cash-planning projection, not a bank balance or advice to postpone essential food purchases. It assumes no unrecorded transactions, steady pay schedules, and bills/card payments as entered. Undated payments are reserved at month-end, which can hide earlier cash shortages; enter due dates in Bills and Debt & Credit for a safer plan. Your forecast is visible only after household login.</p></section>';
  return html;
 }
 function bind(state){
- const root=document.querySelector('#decForecast');if(!root)return;
- const apply=()=>{
-  ui.opening=Number(root.querySelector('#decOpening').value)||0;
-  ui.unlisted=Math.max(0,Number(root.querySelector('#decUnlisted').value)||0);
+ const root=document.getElementById('decForecast');if(!root)return;
+ const changes=()=>{
+  const get=id=>root.querySelector('#'+id);
+  ui.opening=Number(get('decOpening').value)||0;
+  ui.weekly=Math.max(0,Math.min(5000,Number(get('decWeekly').value)||0));
+  ui.buffer=Math.max(0,Math.min(50000,Number(get('decBuffer').value)||0));
+  ui.novExtra=Math.max(0,Number(get('decNovExtra').value)||0);
+  ui.decExtra=Math.max(0,Number(get('decDecExtra').value)||0);
+  ui.novUndated=get('decNovUndated').checked;
   root.outerHTML=render(state);bind(state);
  };
- root.querySelector('#decOpening').addEventListener('change',apply);
- root.querySelector('#decUnlisted').addEventListener('change',apply);
+ for(const id of ['decOpening','decWeekly','decBuffer','decNovExtra','decDecExtra','decNovUndated'])root.querySelector('#'+id).addEventListener('change',changes);
 }
 function dashboard(state){
- const f=forecast(state);
- return '<div class="dec-dashboard"><div><small>December 2026 cash-flow forecast</small><strong>'+cash(f.net)+' <span>estimated surplus</span></strong><small>Conditional Dec 31 cash: '+cash(f.closing)+' if starting cash is available Dec 1</small></div><button type="button" data-tab="December Forecast">View December forecast</button></div>';
+ const s=makeForecast(state).summary;
+ return '<div class="dec-dashboard"><div><small>November → December 2026 cash forecast (with example grocery trips)</small><strong>'+money(s.decClose)+' <span>projected Dec 31 cash</span></strong><small>Estimated November 30 carryover: '+money(s.novClose)+' · Check starting cash and missing due dates</small></div><button type="button" data-tab="Nov–Dec Forecast">View weekly cash forecast</button></div>';
 }
-window.DecemberForecast={forecast,render,bind,dashboard,datesFor};
+window.DecemberForecast={forecast:makeForecast,render,bind,dashboard,datesFor};
 })();
 </script><script>
 (()=>{'use strict';
@@ -387,7 +522,7 @@ const pretty=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d||''))return 'No date';const [y
 const seed=()=>({opening:0,people:['Member 1','Member 2'],paychecks:[],bills:[],debts:[],extras:[],transactions:[]});
 const normalize=o=>{const s=seed();if(!o||typeof o!=='object'||Array.isArray(o))return s;for(const k of ['people','paychecks','bills','debts','extras','transactions'])if(Array.isArray(o[k]))s[k]=o[k].filter(item=>k==='people'?typeof item==='string'&&item.trim().length>0:!!item&&typeof item==='object'&&!Array.isArray(item));if(!s.people.length)s.people=['Member 1','Member 2'];if(Number.isFinite(Number(o.opening)))s.opening=num(o.opening);return s};
 let storageWorking=true,state=seed(),revision=0,householdId=null,householdRole=null,saveBlocked=false,savePending=0,saveQueue=Promise.resolve();
-let tab='Dashboard',editing=null,pendingAction=null,paycheckNotice=null;const tabs=['Dashboard','December Forecast','Paychecks','Bills','Debt & Credit','Debt Payoff','Transactions','Bank Accounts','Settings'];
+let tab='Dashboard',editing=null,pendingAction=null,paycheckNotice=null;const tabs=['Dashboard','Nov–Dec Forecast','Paychecks','Bills','Debt & Credit','Debt Payoff','Transactions','Bank Accounts','Settings'];
 const $=s=>document.querySelector(s);
 function save(){
  if(!window.budgetDB||!householdId||saveBlocked){message('Budget cannot be saved. Export a backup and use Reload latest after resolving the connection.',true);return false}
@@ -515,7 +650,7 @@ function render(){const confirm=$('#confirmation');confirm.innerHTML=pendingActi
   html+=flow.next30.length?flow.next30.map(e=>row(e.name,`${pretty(e.date)} · ${esc(e.kind)} · Balance after: <span class="${e.balance<0?'bad':'ok'}">${money(e.balance)}</span>`,Math.abs(e.amount),`<span class="pill">${e.amount>=0?'Income':'Outflow'}</span>`)).join(''):'<div class="empty">No forecasted activity in the next 30 days.</div>';
   html+=`<p class="hint">Estimated balance today: ${money(flow.now)}. This is based on your starting cash, entered paychecks, recorded transactions, and unpaid due dates; it is not your bank balance. The projected balance includes all entered future dates, not only the next 30 days. Funding warnings do not prevent adding or manually assigning an expense.</p>`;
  }
-if(tab==='December Forecast'){html+=window.DecemberForecast.render(state)}
+if(tab==='Nov–Dec Forecast'){html+=window.DecemberForecast.render(state)}
 if(tab==='Paychecks'){html+='<div class="bar"><button id="generate" class="primary">Generate next 3 months</button><span class="hint">Enter an amount, select a date and click Add paycheck. A confirmation or error appears above the form.</span></div>';html+=editingPanel();html+=paycheckForm();if(paycheckNotice)html+=`<div class="notice ${paycheckNotice.error?'error':''}" role="status" aria-live="polite">${esc(paycheckNotice.text)}</div>`;html+='<p class="hint">A confirmation appears under the form after adding. Your paychecks are saved to the private household database and can be shared with authorized members.</p>';const all=[...state.paychecks].sort((a,b)=>String(a?.date||'').localeCompare(String(b?.date||'')));html+=all.map(p=>row(p.member,`${pretty(p.date)} · ${esc(p.frequency||'One-time')}${p.parent?' · Generated':''}`,p.amount,`<button class="compact" data-edit-paycheck="${esc(p.id)}">Edit</button><button class="compact danger-btn" data-remove-pay="${esc(p.id)}">Remove</button>`)).join('')||'<div class="empty">No paychecks yet.</div>'}
 if(tab==='Bills'){html+='<p class="muted">Add your bills and upcoming payment dates. Undated bills are excluded from forecasting. Any imported Credit Cards budget line is for planning only, not a second debt minimum.</p>';html+=editingPanel();html+=frm('bill',field('Bill name','name','text','placeholder="Rent, electricity, internet..."')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Due date','date','date')+select('Repeat','frequency',freqOptions()),'Add bill');html+=state.bills.map(b=>row(b.name,`${b.date?pretty(b.date):'<span class="warn">Due date needed</span>'} · ${b.paid?'<span class="ok">Paid</span>':'Unpaid'} · ${esc(b.frequency||'One-time')}${b.budgetOnly?' · Budget allocation, not a second debt payment':''}`,b.amount,`<button class="compact" data-edit-bill="${esc(b.id)}">Edit bill</button>${b.budgetOnly?'<span class="pill">Reference only</span>':`<label class="inline-label"><input type="checkbox" data-paid-bill="${esc(b.id)}" ${b.paid?'checked':''}>Paid</label>${assignControl(b)}`}<button class="compact danger-btn" data-remove-bill="${esc(b.id)}">Remove</button>`)).join('')||'<div class="empty">No bills yet.</div>'}
 if(tab==='Debt & Credit'){html+='<p class="muted">Track credit cards and loans here. Set a next due date to include each minimum payment in the funding forecast. Missing APRs are not estimated.</p>';html+=editingPanel();html+=frm('debt',field('Account nickname','name')+select('Type','type',['Credit Card','Auto Loan','Personal Loan','Mortgage','Student Loan','Other'].map(v=>[v,v]))+field('Current balance','balance','number','min="0" step="0.01"')+field('Minimum payment','minimum','number','min="0.01" step="0.01"')+field('Next due date','due','date')+field('APR (%)','apr','number','min="0" step="0.01"')+field('Credit limit (0 for loans)','limit','number','min="0" step="0.01"'),'Add debt');html+=state.debts.map(d=>row(d.name,`${esc(d.type)} · ${d.apr==null?'APR not provided':num(d.apr)+'% APR'} · Minimum ${num(d.minimum)>0?money(d.minimum):'<span class="bad">Not entered</span>'} · Due ${d.due?pretty(d.due):d.dueDay?'<span class="warn">Day '+d.dueDay+' · set next date</span>':'<span class="bad">Not entered</span>'}${num(d.limit)>0?' · Limit '+money(d.limit):''}`,d.balance,`<label class="inline-label"><input type="checkbox" data-paid-debt="${esc(d.id)}" ${d.paid?'checked':''}>Minimum paid</label>${assignControl(d)}<button class="compact" data-edit-debt="${esc(d.id)}">Edit details</button><button class="compact danger-btn" data-remove-debt="${esc(d.id)}">Remove</button>`)).join('')||'<div class="empty">No debts yet.</div>';html+='<h3>Schedule an extra payment</h3>';if(state.debts.length&&state.paychecks.length)html+=frm('extra',select('Debt','debt',state.debts.map(d=>[d.id,d.name]))+select('From paycheck','paycheck',state.paychecks.map(p=>[p.id,p.member+' · '+pretty(p.date)]))+field('Extra payment ($)','amount','number','min="0.01" step="0.01"'),'Schedule extra payment');else html+='<p class="hint">Add at least one debt and paycheck first.</p>';html+=state.extras.map(x=>row(state.debts.find(d=>d.id===x.debt)?.name||'Debt',`Extra payment · ${x.paid?'Paid':'Scheduled'}`,x.amount,`<label class="inline-label"><input type="checkbox" data-paid-extra="${esc(x.id)}" ${x.paid?'checked':''}>Paid</label><button class="compact danger-btn" data-remove-extra="${esc(x.id)}">Remove</button>`)).join('');html+='<p class="hint">Account balances and interest rates are entered manually and are not linked to your bank. Debt payments are treated as reductions in principal; this app does not calculate statement interest or provide financial advice.</p>'}
@@ -523,7 +658,7 @@ if(tab==='Debt Payoff'){html+=window.DebtPlanner.render(state)}
 if(tab==='Transactions'){html+=frm('expense',field('Expense description','name')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Transaction date','date','date'),'Add expense');html+=state.transactions.map(x=>row(x.name,`${pretty(x.date)} · ${esc(x.kind)}`,x.amount,`<button class="compact danger-btn" data-remove-transaction="${esc(x.id)}">Remove</button>`)).join('')||'<div class="empty">No transactions recorded.</div>'}
 if(tab==='Bank Accounts')html+='<div class="empty">Checking and savings account management will be added separately. No bank account connection is active.</div>';
 if(tab==='Settings'){html+='<p class="muted">Customize members and your starting available cash. These settings affect the combined household plan.</p>';html+=frm('opening',`<label class="field">Starting household cash ($)<input type="number" name="opening" min="0" step="0.01" value="${num(state.opening)}" required></label>`,'Save cash balance');html+=frm('member',field('New household member','name','text','maxlength="60"'),'Add household member');html+='<h3>Household members</h3>'+state.people.map(p=>row(p,'Available for paycheck assignment',0,`<button class="compact danger-btn" data-remove-member="${esc(p)}">Remove</button>`)).join('');html+='<h3>Website access</h3><p class="hint">Only approved signed-in people can access this household budget. Generate a one-time invitation code for another household member.</p><div class="bar"><button type="button" id="createInvite">Create 7-day invite</button></div><p class="hint">Invitation codes are sensitive. Share privately with the intended person; each code works once.</p><div id="inviteResult"></div>'}
-$('#view').innerHTML=html;if(tab==='Debt Payoff')window.DebtPlanner.bind(state);if(tab==='December Forecast')window.DecemberForecast.bind(state)}
+$('#view').innerHTML=html;if(tab==='Debt Payoff')window.DebtPlanner.bind(state);if(tab==='Nov–Dec Forecast')window.DecemberForecast.bind(state)}
 function pay(entry,kind,checked){if(Boolean(entry.paid)===checked)return false;const amount=num(kind==='minimum'?entry.minimum:entry.amount);const debt=kind==='minimum'?entry:kind==='extra'?state.debts.find(d=>d.id===entry.debt):null;if(checked){if(debt&&debt.balance<amount){message('Payment exceeds the remaining debt balance.',true);return false}if(debt)debt.balance=num(debt.balance-amount);entry.paid=true;state.transactions.unshift({id:makeId(),source:entry.id,name:kind==='bill'?entry.name:(debt?.name||'Debt')+' payment',amount,date:today(),kind:kind==='bill'?'expense':'debt'})}else{const tx=state.transactions.find(t=>t.source===entry.id);if(tx){if(debt)debt.balance=num(debt.balance+tx.amount);state.transactions=state.transactions.filter(t=>t.id!==tx.id)}entry.paid=false}return true}
 function submit(e){const form=e.target.closest('form[data-kind]');if(!form)return;e.preventDefault();const kind=form.dataset.kind,v=Object.fromEntries(new FormData(form).entries()),amount=kind==='paycheck'||kind==='edit-paycheck'?parsePayAmount(v.amount):Number(v.amount);
  if(kind==='paycheck'||kind==='edit-paycheck'){
