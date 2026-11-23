@@ -32,6 +32,9 @@ function reset(state){
  openNames=new Set();
 }
 function clear(){snapshot=null;starting=null;notice='';dirty=false;openNames.clear()}
+function generateThreeMonths(){
+ mode=3;notice='Generated three future calendar months in this forecast only. Original Paychecks and Bills were not changed.';
+}
 function ensure(state){if(!snapshot)reset(state);}
 function endDate(start,months){const [y,m]=start.split('-').map(Number),d=new Date(Date.UTC(y,m-1+months+1,0));return iso(d.getTime());}
 function occurrences(base,from,to){
@@ -259,7 +262,7 @@ function bind(state,refresh){
  });
  root.addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;
-  if(t.id==='fsGenerate'){mode=3;notice='Generated three future calendar months in this forecast only. Original Paychecks and Bills were not changed.';rerender();return;}
+  if(t.id==='fsGenerate'){generateThreeMonths();rerender();return;}
   if(t.id==='fsReset'){reset(state);rerender();return;}
   if(t.dataset.fsRemove){
    const a=snapshot[t.dataset.fsRemove],idx=Number(t.dataset.fsIndex);
@@ -275,5 +278,5 @@ function bind(state,refresh){
   dirty=true;notice='Added only to this forecast scenario.';rerender();
  });
 }
-window.ForecastStudio={reset,clear,ensure,render,bind,model,dates:occurrences};
+window.ForecastStudio={reset,clear,ensure,render,bind,model,generateThreeMonths,dates:occurrences};
 })();
