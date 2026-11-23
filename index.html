@@ -101,6 +101,46 @@
  .dec-result strong{font-size:22px}
 }
 
+
+/* Dashboard-first weekly cash planning: Christmas and gas are explicitly TBD until estimated */
+.wk-section{display:grid;gap:12px;margin:18px 0}
+.wk-head{display:flex;gap:14px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:2px}
+.wk-head h3{margin:0 0 5px;font-size:18px}
+.wk-head p{margin:0;max-width:670px}
+.wk-card{border:1px solid #40526e;border-radius:14px;background:#131e2d;overflow:hidden}
+.wk-card.wk-risk{border-color:#ce7882}
+.wk-top{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 17px;background:#1c2d42}
+.wk-top .wk-dates{font-size:17px;display:block}
+.wk-top small{color:#b7c6da;font-size:12px;display:block;margin-top:4px}
+.wk-figures{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border-bottom:1px solid #334860}
+.wk-figures>div{padding:14px 16px;min-width:0;border-right:1px solid #344458}
+.wk-figures>div:last-child{border:0}
+.wk-figures small{display:block;font-size:12px;color:#c2cddd}
+.wk-figures b{display:block;font-size:clamp(17px,2.2vw,24px);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;margin-top:6px}
+.wk-in b{color:#93ebbf}.wk-out b{color:#ffb7bb}
+.wk-ending{background:#19372f}.wk-ending b{color:#c2f5d9}
+.wk-risk .wk-ending b{color:#ffb7bb}
+.wk-categories{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-bottom:1px solid #33465f}
+.wk-categories>span{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 16px;font-size:12px;color:#becde0;border-right:1px solid #2d4058;border-bottom:1px solid #2d4058}
+.wk-categories>span b{font-size:13px;color:#f1f6ff;font-variant-numeric:tabular-nums}
+.wk-tbd{color:#ffcf96;font-weight:700;white-space:nowrap}
+.wk-bottom{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;background:#1a293a;padding:11px 16px;color:#bfcede;font-size:13px}
+.wk-bottom b{margin-left:6px;font-variant-numeric:tabular-nums}
+.wk-detail{border-top:1px solid #30445f;padding:11px 16px}
+.wk-detail summary{color:#bcd0f5;font-weight:600;cursor:pointer;font-size:13px}
+.wk-transaction{display:grid;grid-template-columns:66px minmax(0,1fr) auto;align-items:center;gap:12px;border-top:1px solid #344760;padding:10px 4px;font-size:13px}
+.wk-transaction:first-of-type{margin-top:11px}
+.wk-transaction time{color:#bccadc}
+.wk-transaction span{overflow-wrap:anywhere}
+.wk-transaction b{white-space:nowrap;font-variant-numeric:tabular-nums}
+.wk-warning{border:1px solid #987350;background:#403022;padding:13px 16px;border-radius:10px;color:#ffe1b6}
+.wk-warning p{margin:7px 0 0;color:#f6d8ba;line-height:1.55}
+.wk-old,.wk-legacy{padding:13px 16px;margin-top:20px;border:1px solid #394b67;border-radius:13px;background:#131e2c}
+.wk-legacy summary{cursor:pointer;color:#cdd9ec;font-weight:700}
+.wk-legacy h3{margin-top:19px}
+@media(max-width:850px){.wk-categories{grid-template-columns:repeat(2,minmax(0,1fr))}.wk-figures>div{padding:12px}.wk-figures b{font-size:17px}}
+@media(max-width:560px){.wk-figures{grid-template-columns:repeat(2,minmax(0,1fr))}.wk-figures>div{border-bottom:1px solid #344458}.wk-figures b{font-size:19px}.wk-categories>span{padding:10px}.wk-head button{width:100%}.wk-transaction{grid-template-columns:48px minmax(0,1fr) auto;gap:6px}.wk-transaction b{font-size:12px}.wk-tbd{white-space:normal}}
+
 </style></head><body>
 <div id="authScreen" class="auth-wrap"><div class="auth-card"><h1>Household Budget</h1><h2>Private access</h2><p id="authNote" class="auth-note">Sign in to see your private budget. The website does not publish card balances or transactions.</p>
 <div id="loginFields"><form id="authForm" novalidate><label class="field">Email<input id="loginEmail" type="email" autocomplete="email" required></label><label class="field">Password<input id="loginPassword" type="password" autocomplete="current-password" minlength="12" required></label><button id="signin" class="primary" type="button">Sign in</button><button id="signup" type="button">Create household login</button></form></div>
@@ -278,7 +318,7 @@ const fmt=s=>new Date(time(s)).toLocaleDateString('en-US',{month:'short',day:'nu
 const monthEnd=(year,month)=>new Date(Date.UTC(year,month,0)).getUTCDate();
 const dayAt=(year,month,day)=>year+'-'+String(month).padStart(2,'0')+'-'+String(Math.min(monthEnd(year,month),day)).padStart(2,'0');
 const between=d=>d>=START&&d<=END;
-const ui={opening:null,weekly:100,buffer:500,novExtra:0,decExtra:0,novUndated:false,deferHouse:true};
+const ui={opening:null,weekly:100,buffer:500,novExtra:0,decExtra:0,novUndated:false,deferHouse:true,gasWeekly:0,christmas:0,christmasDate:'2026-12-20'};
 function datesFor(item){
  if(!dateOK(item.date))return [];
  const anchor=item.date,frequency=item.frequency||'One-time',out=[];
@@ -306,7 +346,7 @@ function datedEntries(entries,kind,warn,opt){
  for(const base of parents){
   if(kind==='bill'&&base.budgetOnly)continue;
   // A household may defer the undated House bill through December without editing its saved bill.
-  if(kind==='bill'&&opt.deferHouse&&String(base.name||'').trim().toLowerCase()==='house'&&base.frequency==='Monthly')continue;
+  if(kind==='bill'&&String(base.name||'').trim().toLowerCase()==='house'&&base.frequency==='Monthly')continue;
   if(!cents(base.amount))continue;
   if(!dateOK(base.date)){
    const isRecurring=base.frequency&&base.frequency!=='One-time';
@@ -326,7 +366,7 @@ function datedEntries(entries,kind,warn,opt){
  for(const ch of children){
   if(kind==='bill'&&ch.budgetOnly)continue;
   const owningBill=parents.find(x=>x.id===ch.parent);
-  if(kind==='bill'&&opt.deferHouse&&owningBill&&String(owningBill.name||'').trim().toLowerCase()==='house'&&owningBill.frequency==='Monthly')continue;
+  if(kind==='bill'&&owningBill&&String(owningBill.name||'').trim().toLowerCase()==='house'&&owningBill.frequency==='Monthly')continue;
   if(!dateOK(ch.date)||!between(ch.date))continue;
   const parent=parents.find(x=>x.id===ch.parent);
   if(parent&&datesFor(parent).includes(ch.date))continue;
@@ -376,11 +416,18 @@ function makeForecast(state,options={}){
  const reserve=(date,amount,label)=>{const v=cents(amount);if(v)events.push({date,kind:'reserve',title:label,amount:-v});};
  reserve('2026-11-30',opt.novExtra,'Other November spending (what-if)');
  reserve(END,opt.decExtra,'Other December spending (what-if)');
+ // Unknown holiday and fuel spending are explicit, editable what-if inputs (zero is not treated as a known actual).
+ const christmasCost=cents(opt.christmas),gasCost=cents(opt.gasWeekly);
+ const christmasDate=dateOK(opt.christmasDate)&&between(opt.christmasDate)&&opt.christmasDate.slice(0,7)==='2026-12'?opt.christmasDate:'2026-12-20';
+ if(christmasCost)events.push({date:christmasDate,kind:'christmas',title:'Christmas spending (what-if)',amount:-christmasCost});
+ if(gasCost)for(const week of weeks())events.push({date:week.start,kind:'gas',title:'Gas allowance (what-if)',amount:-gasCost});
  const grossTotals=month=>({
   income:events.filter(e=>e.date.startsWith(month)&&e.kind==='income').reduce((s,e)=>s+e.amount,0),
   bill:events.filter(e=>e.date.startsWith(month)&&['bill','undated'].includes(e.kind)).reduce((s,e)=>s-e.amount,0),
   minimum:events.filter(e=>e.date.startsWith(month)&&e.kind.startsWith('minimum')).reduce((s,e)=>s-e.amount,0),
-  other:events.filter(e=>e.date.startsWith(month)&&['extra','transaction','reserve'].includes(e.kind)).reduce((s,e)=>s-e.amount,0)
+  other:events.filter(e=>e.date.startsWith(month)&&['extra','transaction','reserve'].includes(e.kind)).reduce((s,e)=>s-e.amount,0),
+  gas:events.filter(e=>e.date.startsWith(month)&&e.kind==='gas').reduce((s,e)=>s-e.amount,0),
+  christmas:events.filter(e=>e.date.startsWith(month)&&e.kind==='christmas').reduce((s,e)=>s-e.amount,0)
  });
  const calcBase={nov:grossTotals('2026-11'),dec:grossTotals('2026-12')};
  const scenario=weeks(),baseDays=[],byDate=new Map();
@@ -428,22 +475,38 @@ function makeForecast(state,options={}){
   w.low=Math.min(openingBalance,...observations.map(d=>d.balance));
   w.high=Math.max(openingBalance,...observations.map(d=>d.balance));
   w.income=detail.filter(e=>e.kind==='income'&&e.date>=w.start&&e.date<=w.end).reduce((s,e)=>s+e.amount,0);
-  w.bills=-detail.filter(e=>e.amount<0&&e.kind!=='grocery'&&e.date>=w.start&&e.date<=w.end).reduce((s,e)=>s+e.amount,0);
+  const weekEntries=detail.filter(e=>e.date>=w.start&&e.date<=w.end);
+  const by=k=>-weekEntries.filter(e=>e.kind===k).reduce((sum,e)=>sum+Math.min(0,e.amount),0);
+  w.open=openingBalance;
+  w.categories={
+   bills:by('bill')+by('undated'),
+   cards:by('minimum')+by('minimum-estimated'),
+   groceries:by('grocery'),
+   gas:by('gas'),
+   christmas:by('christmas'),
+   other:by('reserve')+by('extra')+by('transaction')
+  };
+  w.out=Object.values(w.categories).reduce((sum,v)=>sum+v,0);
+  w.bills=w.out-w.categories.groceries;
+  w.events=weekEntries;
+  if(w.open+w.income-w.out!==w.close)warn.push('Week of '+w.start+' does not reconcile; please verify the forecast.');
  }
  const grocNov=-groceryEvents.filter(e=>e.date.startsWith('2026-11')).reduce((s,e)=>s+e.amount,0);
  const grocDec=-groceryEvents.filter(e=>e.date.startsWith('2026-12')).reduce((s,e)=>s+e.amount,0);
  const novClose=dmap.get('2026-11-30'),decClose=dmap.get(END);
- const excludingGroceries={nov:calcBase.nov.income-calcBase.nov.bill-calcBase.nov.minimum-calcBase.nov.other,dec:calcBase.dec.income-calcBase.dec.bill-calcBase.dec.minimum-calcBase.dec.other};
+ const excludingGroceries={nov:calcBase.nov.income-calcBase.nov.bill-calcBase.nov.minimum-calcBase.nov.other-calcBase.nov.gas-calcBase.nov.christmas,dec:calcBase.dec.income-calcBase.dec.bill-calcBase.dec.minimum-calcBase.dec.other-calcBase.dec.gas-calcBase.dec.christmas};
  const observed=days.map(d=>({date:d.date,value:d.balance}));
  const high=observed.reduce((a,b)=>b.value>a.value?b:a);
  const low=observed.reduce((a,b)=>b.value<a.value?b:a);
+ if(!cents(opt.christmas))warn.push('Christmas spending is TBD and is not deducted yet.');
+ if(!cents(opt.gasWeekly))warn.push('Gas spending is TBD and is not deducted yet.');
  const negatives=days.filter(d=>d.balance<0);
  if(negatives.length)warn.push('One or more projected days fall below $0. A positive month-end amount does not guarantee bills can be covered on time.');
  if(opt.weekly===100)warn.push('The $100 weekly grocery figure is an example, not a recorded expense. Change it to your actual plan.');
- if(opt.deferHouse && (state.bills||[]).some(b=>!b.parent&&String(b.name||'').trim().toLowerCase()==='house'&&b.frequency==='Monthly'))warn.push('The House bill is excluded from the November–December scenario because it is not needed until January. It remains unchanged in the saved Bills tab.');
- if(!opt.novUndated)warn.push('Other undated recurring bills are NOT charged in November. Enable the November reserve if they are still owed.');
+ if((state.bills||[]).some(b=>!b.parent&&String(b.name||'').trim().toLowerCase()==='house'))warn.push('The House bill is intentionally excluded from this cash forecast and remains unchanged in Bills.');
+ if(!opt.novUndated&&(state.bills||[]).some(b=>!b.parent&&b.frequency&&b.frequency!=='One-time'&&!dateOK(b.date)&&String(b.name||'').trim().toLowerCase()!=='house'))warn.push('Other undated recurring bills are NOT charged in November. Enable the November reserve if they are still owed.');
  warn.push('Starting cash is not date-stamped in your budget. Confirm the amount available BEFORE November 23 paychecks and payments to prevent double-counting.');
- const summary={opening,nov:calcBase.nov,dec:calcBase.dec,novClose,decClose,grocNov,grocDec,excludingGroceries,high,low,negativeDays:negatives.length};
+ const summary={opening,nov:calcBase.nov,dec:calcBase.dec,novClose,decClose,grocNov,grocDec,excludingGroceries,high,low,negativeDays:negatives.length,gasCost,christmasCost};
  return {summary,days,weeks:scenario,events:detail,warnings:[...new Set(warn)],options:opt};
 }
 function plot(f){
@@ -470,31 +533,46 @@ function plot(f){
  const low=marker(f.summary.low,'#ffacac','LOW','below');
  return '<div class="dec-chart" style="overflow:auto"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Projected remaining November and December cash balance, with labeled high and low and Sunday week ending markers" style="width:100%;min-width:650px;height:auto"><rect x="'+L+'" y="'+T+'" width="'+(W-R-L)+'" height="'+(H-T-B)+'" rx="8" fill="#132234"/>'+ticks+zero+monthDivision+'<path d="'+stepPath+'" stroke="#83d0f5" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'+points+high+low+labels+'</svg></div>';
 }
+
+function weeklyBreakdown(f,context){
+ let html='<section class="wk-section"><div class="wk-head"><div><h3>Week-by-week money in & money out</h3><p class="hint">Every week carries its ending cash into the next. All amounts are projections from saved entries and unsaved scenario allowances.</p></div><button type="button" data-tab="Nov–Dec Forecast" class="compact">Adjust Christmas, gas & groceries</button></div>';
+ const TBD='<span class="wk-tbd">TBD — not deducted</span>';
+ for(const w of f.weeks){
+  const startLabel=fmt(w.start),endLabel=fmt(w.end),details=w.events||[],c=w.categories;
+  const sign=w.income-w.out;
+  const mode=w.mode==='Light'?'dec-light':w.mode==='Stock-up'?'dec-heavy':'dec-regular';
+  html+='<article class="wk-card'+(w.close<0||w.low<0?' wk-risk':'')+'"><div class="wk-top"><div><strong class="wk-dates">'+esc(startLabel)+' – '+esc(endLabel)+'</strong><small>Week ending '+esc(endLabel)+'</small></div><span class="dec-grocery '+mode+'">'+esc(w.mode)+' groceries</span></div>';
+  html+='<div class="wk-figures"><div><small>Starting</small><b>'+money(w.open)+'</b></div><div class="wk-in"><small>Money in</small><b>+'+money(w.income)+'</b></div><div class="wk-out"><small>Money out</small><b>−'+money(w.out)+'</b></div><div class="wk-ending"><small>Ending cash</small><b>'+money(w.close)+'</b></div></div>';
+  html+='<div class="wk-categories"><span>Bills <b>'+money(c.bills)+'</b></span><span>Cards <b>'+money(c.cards)+'</b></span><span>Groceries <b>'+money(c.groceries)+'</b></span><span>Gas '+(f.options.gasWeekly>0?'<b>'+money(c.gas)+'</b>':TBD)+'</span><span>Christmas '+(f.options.christmas>0?'<b>'+money(c.christmas)+'</b>':TBD)+'</span><span>Other <b>'+money(c.other)+'</b></span></div>';
+  html+='<div class="wk-bottom"><span>Net this week <b class="'+(sign<0?'dec-red':'dec-green')+'">'+(sign<0?'−':'+')+money(Math.abs(sign))+'</b></span><span>Lowest cash <b class="'+(w.low<0?'dec-red':'')+'">'+money(w.low)+'</b></span></div>';
+  html+='<details class="wk-detail"><summary>See individual payments and paychecks ('+details.length+')</summary>';
+  if(details.length){
+   for(const e of details)html+='<div class="wk-transaction"><time>'+esc(fmt(e.date))+'</time><span>'+esc(e.title)+'</span><b class="'+(e.amount>=0?'dec-green':'dec-red')+'">'+(e.amount>=0?'+':'−')+money(Math.abs(e.amount))+'</b></div>';
+  }else html+='<p class="hint">No dated activity this week.</p>';
+  html+='</details></article>';
+ }
+ html+='<p class="hint">The house payment is excluded from this forecast. Christmas and gas are unbudgeted until you enter estimates; <strong>TBD is not $0 spending</strong>. The grocery trip amounts are examples. No chart is displayed.</p></section>';
+ return html;
+}
 function render(state){
  const f=makeForecast(state),s=f.summary,round=n=>money(n);
  const cell=(label,value,css='')=>'<div class="dec-stat"><small>'+esc(label)+'</small><strong class="'+css+'">'+round(value)+'</strong></div>';
- let html='<section id="decForecast"><div class="dec-lede"><strong>November 23 – December 31, 2026</strong>. This cash-flow scenario starts before the November 23 paycheck and carries November’s remaining cash into December. Groceries are a planning example, not existing bank transactions.</div>';
- html+='<div class="dec-stats">'+cell('Starting cash (Nov 23)',s.opening)+cell('November 30 estimate',s.novClose,s.novClose<0?'dec-red':'')+cell('December 31 estimate',s.decClose,s.decClose<0?'dec-red':'')+cell('December net before groceries',s.excludingGroceries.dec,s.excludingGroceries.dec<0?'dec-red':'')+'</div>';
- html+='<div class="dec-result"><div><small>Lowest projected day</small><strong class="'+(s.low.value<0?'dec-red':'')+'">'+round(s.low.value)+'</strong><p>'+fmt(s.low.date)+'</p></div><div><small>Highest projected day</small><strong>'+round(s.high.value)+'</strong><p>'+fmt(s.high.date)+'</p></div><div><small>Grocery scenario across both months</small><strong>'+round(s.grocNov+s.grocDec)+'</strong><p>November '+round(s.grocNov)+' · December '+round(s.grocDec)+'</p></div></div>';
- html+='<div class="dec-inputs"><label class="field">Starting cash before Nov 23 entries ($)<input id="decOpening" type="number" step="0.01" value="'+(f.options.opening===null?Number(state.opening)||0:f.options.opening)+'"></label><label class="field">Weekly grocery example ($)<input id="decWeekly" type="number" min="0" max="5000" step="5" value="'+f.options.weekly+'"></label><label class="field">Minimum cash cushion ($)<input id="decBuffer" type="number" min="0" max="50000" step="50" value="'+f.options.buffer+'"></label><label class="field">Other spending through Nov 30 ($)<input id="decNovExtra" type="number" min="0" max="100000" step="10" value="'+f.options.novExtra+'"></label><label class="field">Other December spending ($)<input id="decDecExtra" type="number" min="0" max="100000" step="10" value="'+f.options.decExtra+'"></label><label class="field"><span>Other undated monthly bills still unpaid for November?</span><span class="dec-check"><input type="checkbox" id="decNovUndated" '+(f.options.novUndated?'checked':'')+'> Reserve those in November too</span></label><label class="field"><span>House payment deferred until January</span><span class="dec-check"><input type="checkbox" id="decDeferHouse" '+(f.options.deferHouse?'checked':'')+'> Exclude House from November and December</span></label></div>';
- html+='<p class="hint">These are <strong>what-if controls only</strong>. Nothing here changes your saved paychecks, debts, or bill dates. Week-ending balances include the example grocery plan; they are not verified bank balances.</p>';
- html+='<h3>Cash highs and lows — with week-end markers</h3><p class="hint">The line changes when paychecks or expenses occur. Blue dots mark each week ending. Green and pink markers identify the highest and lowest end-of-day balances. The first week’s low also considers starting cash before November 23 activity, and your intraday balance may differ.</p>'+plot(f);
- html+='<h3>Week-ending balances and grocery-shopping guidance</h3><div class="dec-weeks"><div class="dec-week-header"><span>Week ending</span><span>Week low / high</span><span>Ending cash</span><span>Grocery plan</span></div>';
- for(const w of f.weeks){
-  const css=w.mode==='Light'?'dec-light':w.mode==='Stock-up'?'dec-heavy':'dec-regular';
-  html+='<div class="dec-week"><div><strong>'+fmt(w.start)+'–'+fmt(w.end)+'</strong><small>+ '+round(w.income)+' income · − '+round(w.bills)+' bills/cards</small></div><div><span class="dec-red">Low '+round(w.low)+'</span><small>High '+round(w.high)+'</small></div><div class="dec-week-close '+(w.close<0?'dec-red':'')+'">'+round(w.close)+'</div><div><span class="dec-grocery '+css+'">'+esc(w.mode)+'</span><strong class="dec-grocery-dollar">'+round(w.cost)+'</strong><small>'+esc(w.why)+'</small></div></div>';
- }
- html+='</div><p class="hint">“Stock-up” means a <strong>larger grocery trip</strong> looks more practical based on the projected cash cushion. “Light” means a smaller essentials-focused trip. Shopping is placed at the beginning of each displayed week, for forecasting only. Stock-up recommendations use unused grocery allowance from earlier light trips; they do not increase the overall example budget. A weekly example budget of $100 is used until you adjust it.</p>';
- const breakdown=(label,obj,grocery)=>'<div class="dec-breakdown"><strong>'+label+'</strong><div>Expected paychecks <b>'+round(obj.income)+'</b></div><div>Bills and one-time charges <b>−'+round(obj.bill)+'</b></div><div>Card minimums <b>−'+round(obj.minimum)+'</b></div><div>Other spending/extra debt <b>−'+round(obj.other)+'</b></div><div>Example groceries <b>−'+round(grocery)+'</b></div><div class="dec-total">Net change <b>'+round(obj.income-obj.bill-obj.minimum-obj.other-grocery)+'</b></div></div>';
+ let html='<section id="decForecast"><div class="dec-lede"><strong>November 23 – December 31, 2026</strong>. Plan weekly income and spending with your actual saved bills and paychecks. The house payment is ignored in these forecasts. Christmas and gas remain unbudgeted until you enter estimates.</div>';
+ html+='<div class="dec-stats">'+cell('November 30 cash',s.novClose,s.novClose<0?'dec-red':'')+cell('December 31 cash',s.decClose,s.decClose<0?'dec-red':'')+cell('Total Christmas scenario',s.christmasCost)+cell('Weekly gas allowance',cents(f.options.gasWeekly))+'</div>';
+ html+='<div class="wk-warning"><strong>Christmas and gas amounts unknown</strong><p>Without estimates, those expenses are <strong>not deducted</strong> from the forecast. Add tentative amounts below, then adjust when you know more. The fields do not change your saved budget.</p></div>';
+ html+='<h3>Plan your spending</h3>';
+ html+='<div class="dec-inputs"><label class="field">Christmas spending estimate ($)<input id="decChristmas" type="number" min="0" max="100000" step="25" value="'+f.options.christmas+'" placeholder="TBD"></label><label class="field">Christmas shopping date (estimated)<input id="decChristmasDate" type="date" min="2026-12-01" max="2026-12-31" value="'+esc(f.options.christmasDate)+'"></label><label class="field">Gas allowance each week ($)<input id="decGasWeekly" type="number" min="0" max="10000" step="10" value="'+f.options.gasWeekly+'" placeholder="TBD"></label><label class="field">Grocery allowance each week ($)<input id="decWeekly" type="number" min="0" max="5000" step="5" value="'+f.options.weekly+'"></label><label class="field">Minimum cash cushion ($)<input id="decBuffer" type="number" min="0" max="50000" step="50" value="'+f.options.buffer+'"></label><label class="field">Starting cash before Nov 23 entries ($)<input id="decOpening" type="number" step="0.01" value="'+(f.options.opening===null?Number(state.opening)||0:f.options.opening)+'"></label><label class="field">Other spending through Nov 30 ($)<input id="decNovExtra" type="number" min="0" step="10" value="'+f.options.novExtra+'"></label><label class="field">Other December spending ($)<input id="decDecExtra" type="number" min="0" step="10" value="'+f.options.decExtra+'"></label><label class="field"><span>Other undated bills still unpaid in November?</span><span class="dec-check"><input type="checkbox" id="decNovUndated" '+(f.options.novUndated?'checked':'')+'> Reserve these too</span></label></div>';
+ html+='<p class="hint">Planning inputs are temporary until you enter real bills or transactions. The default $100 weekly grocery budget is illustrative. Christmas spending is placed on the estimated shopping date; gas is planned at the start of each week.</p>';
+ html+=weeklyBreakdown(f,'forecast');
+ const breakdown=(label,obj,grocery)=>'<div class="dec-breakdown"><strong>'+label+'</strong><div>Expected paychecks <b>'+round(obj.income)+'</b></div><div>Bills <b>−'+round(obj.bill)+'</b></div><div>Card minimums <b>−'+round(obj.minimum)+'</b></div><div>Groceries (example) <b>−'+round(grocery)+'</b></div><div>Gas allowance <b>'+(f.options.gasWeekly>0?'−'+round(obj.gas):'TBD')+'</b></div><div>Christmas spending <b>'+(f.options.christmas>0?'−'+round(obj.christmas):'TBD')+'</b></div><div>Other expenses <b>−'+round(obj.other)+'</b></div><div class="dec-total">Net change <b>'+round(obj.income-obj.bill-obj.minimum-grocery-obj.gas-obj.christmas-obj.other)+'</b></div></div>';
  html+='<h3>November-to-December rollover</h3><div class="dec-breakdowns">'+breakdown('Remaining November',s.nov,s.grocNov)+breakdown('December',s.dec,s.grocDec)+'</div>';
- if(f.warnings.length)html+='<div class="dec-warnings"><strong>Dates and assumptions to verify</strong><ul>'+f.warnings.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>';
- html+='<details class="dec-details"><summary>Show all paychecks, bills, cards and shopping assumptions</summary><div class="dec-event-list">'+f.events.map(e=>'<div class="dec-event"><span>'+fmt(e.date)+'</span><div><b>'+esc(e.title)+'</b><small>'+esc(e.kind)+'</small></div><strong class="'+(e.amount<0?'dec-red':'dec-green')+'">'+(e.amount>=0?'+':'−')+round(Math.abs(e.amount))+'</strong></div>').join('')+'</div></details>';
- html+='<p class="hint">This is a cash-planning projection, not a bank balance or advice to postpone essential food purchases. It assumes no unrecorded transactions, steady pay schedules, and bills/card payments as entered. Undated payments are reserved at month-end, which can hide earlier cash shortages; enter due dates in Bills and Debt & Credit for a safer plan. Your forecast is visible only after household login.</p></section>';
+ if(f.warnings.length)html+='<details class="dec-warnings"><summary><strong>Dates and assumptions to verify ('+f.warnings.length+')</strong></summary><ul>'+f.warnings.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></details>';
+ html+='<p class="hint">All balances are estimated. Weekly totals include the same scheduled bills and card minimums you entered, plus any what-if allowances above. Undated bills and exact payment timing can change the outcome. Neither this table nor the grocery plan makes payments.</p></section>';
  return html;
 }
 function bind(state){
  const root=document.getElementById('decForecast');if(!root)return;
- const changes=()=>{
+ const onChange=()=>{
   const get=id=>root.querySelector('#'+id);
   ui.opening=Number(get('decOpening').value)||0;
   ui.weekly=Math.max(0,Math.min(5000,Number(get('decWeekly').value)||0));
@@ -502,14 +580,16 @@ function bind(state){
   ui.novExtra=Math.max(0,Number(get('decNovExtra').value)||0);
   ui.decExtra=Math.max(0,Number(get('decDecExtra').value)||0);
   ui.novUndated=get('decNovUndated').checked;
-  ui.deferHouse=get('decDeferHouse').checked;
+  ui.gasWeekly=Math.max(0,Math.min(10000,Number(get('decGasWeekly').value)||0));
+  ui.christmas=Math.max(0,Math.min(100000,Number(get('decChristmas').value)||0));
+  ui.christmasDate=get('decChristmasDate').value;
   root.outerHTML=render(state);bind(state);
  };
- for(const id of ['decOpening','decWeekly','decBuffer','decNovExtra','decDecExtra','decNovUndated','decDeferHouse'])root.querySelector('#'+id).addEventListener('change',changes);
+ for(const id of ['decOpening','decWeekly','decBuffer','decNovExtra','decDecExtra','decNovUndated','decGasWeekly','decChristmas','decChristmasDate'])root.querySelector('#'+id).addEventListener('change',onChange);
 }
 function dashboard(state){
- const s=makeForecast(state).summary;
- return '<div class="dec-dashboard"><div><small>November → December 2026 cash forecast (with example grocery trips)</small><strong>'+money(s.decClose)+' <span>projected Dec 31 cash</span></strong><small>Estimated November 30 carryover: '+money(s.novClose)+' · Check starting cash and missing due dates</small></div><button type="button" data-tab="Nov–Dec Forecast">View weekly cash forecast</button></div>';
+ const f=makeForecast(state),s=f.summary;
+ return '<section class="wk-dashboard"><div class="dec-dashboard"><div><small>Weekly cash plan · Nov 23 – Dec 31, 2026</small><strong>'+money(s.decClose)+' <span>estimated Dec 31 cash</span></strong><small>November 30 carryover: '+money(s.novClose)+' · Christmas and gas TBD / not yet deducted</small></div><button type="button" data-tab="Nov–Dec Forecast">Set Christmas & gas estimates</button></div>'+weeklyBreakdown(f,'dashboard')+'</section>';
 }
 window.DecemberForecast={forecast:makeForecast,render,bind,dashboard,datesFor};
 })();
@@ -644,6 +724,7 @@ function render(){const confirm=$('#confirmation');confirm.innerHTML=pendingActi
  let html=`<h2>${esc(tab)}</h2>`;
  if(tab==='Dashboard'){
   html+=window.DecemberForecast.dashboard(state);
+  html+='<details class="wk-legacy"><summary>Show other dashboard details (bill funding and 30-day timeline)</summary>';
   if(!state.bills.length&&!state.debts.length&&!state.paychecks.length){html+='<div class="notice"><strong>Welcome to your online budget.</strong> Your private household budget is empty. Restore your historical backup using Import backup, or add paychecks, bills and debts. Data is saved securely in the household database.</div>'}
   else {const undatedBills=state.bills.filter(b=>!b.date&&!b.budgetOnly).length,undatedDebts=state.debts.filter(d=>!d.due).length;if(undatedBills||undatedDebts)html+='<div class="notice">'+undatedBills+' bill(s) and '+undatedDebts+' debt account(s) have no upcoming payment date, so they are excluded from future cash-flow totals until you provide dates.</div>'}
 
@@ -655,6 +736,7 @@ function render(){const confirm=$('#confirmation');confirm.innerHTML=pendingActi
   html+='<h3>Cash-flow timeline · next 30 days</h3>';
   html+=flow.next30.length?flow.next30.map(e=>row(e.name,`${pretty(e.date)} · ${esc(e.kind)} · Balance after: <span class="${e.balance<0?'bad':'ok'}">${money(e.balance)}</span>`,Math.abs(e.amount),`<span class="pill">${e.amount>=0?'Income':'Outflow'}</span>`)).join(''):'<div class="empty">No forecasted activity in the next 30 days.</div>';
   html+=`<p class="hint">Estimated balance today: ${money(flow.now)}. This is based on your starting cash, entered paychecks, recorded transactions, and unpaid due dates; it is not your bank balance. The projected balance includes all entered future dates, not only the next 30 days. Funding warnings do not prevent adding or manually assigning an expense.</p>`;
+  html+='</details>';
  }
 if(tab==='Nov–Dec Forecast'){html+=window.DecemberForecast.render(state)}
 if(tab==='Paychecks'){html+='<div class="bar"><button id="generate" class="primary">Generate next 3 months</button><span class="hint">Enter an amount, select a date and click Add paycheck. A confirmation or error appears above the form.</span></div>';html+=editingPanel();html+=paycheckForm();if(paycheckNotice)html+=`<div class="notice ${paycheckNotice.error?'error':''}" role="status" aria-live="polite">${esc(paycheckNotice.text)}</div>`;html+='<p class="hint">A confirmation appears under the form after adding. Your paychecks are saved to the private household database and can be shared with authorized members.</p>';const all=[...state.paychecks].sort((a,b)=>String(a?.date||'').localeCompare(String(b?.date||'')));html+=all.map(p=>row(p.member,`${pretty(p.date)} · ${esc(p.frequency||'One-time')}${p.parent?' · Generated':''}`,p.amount,`<button class="compact" data-edit-paycheck="${esc(p.id)}">Edit</button><button class="compact danger-btn" data-remove-pay="${esc(p.id)}">Remove</button>`)).join('')||'<div class="empty">No paychecks yet.</div>'}
