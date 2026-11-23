@@ -1,7 +1,319 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#141b29"><title>Household Budget — Private Access</title><link rel="stylesheet" href="/style.css"></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#141b29"><title>Household Budget — Private Access</title><style>
+
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#ebeff9;background:#0e121c;font-synthesis:none}*{box-sizing:border-box}body{margin:0}header{padding:22px max(18px,calc((100vw - 1180px)/2));display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;border-bottom:1px solid #303b4e;background:#141b29}h1{font-size:25px;margin:0}h2{font-size:21px;margin:0 0 15px}h3{font-size:16px;margin:25px 0 12px}.muted,small{color:#a9b4c8}main{max-width:1180px;margin:auto;padding:22px 18px 45px}nav{display:flex;gap:8px;overflow-x:auto;padding-bottom:9px;margin-bottom:15px}button{border-radius:9px;border:1px solid #465572;background:#263247;color:#f2f5ff;padding:10px 14px;cursor:pointer;font:inherit;white-space:nowrap}button:hover{filter:brightness(1.15)}button.active,.primary{background:#6877ee;border-color:#6877ee;color:#fff}.danger-btn{border-color:#744650;color:#ffacb3;background:#33232e}.compact{padding:6px 10px;font-size:12px}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.card,.panel{border:1px solid #333f53;border-radius:15px;background:#192231;padding:19px}.card strong{display:block;font-size:clamp(19px,2.3vw,27px);margin-top:9px;overflow-wrap:anywhere}.panel{margin-top:15px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:15px 0 24px;padding:17px;border:1px solid #36445d;border-radius:12px;background:#151d2b}label.field{display:block;font-size:13px;color:#c5cede;font-weight:600}input,select{font:inherit;width:100%;background:#0e1522;border:1px solid #53627b;border-radius:8px;color:#f2f5ff;padding:11px;margin-top:6px;min-height:43px}input[type=checkbox]{width:17px;min-height:auto;accent-color:#7483f8;vertical-align:middle;margin:0 5px 0 0}.form-grid button[type="submit"]{grid-column:1/-1}.edit-panel{border:1px solid #6479ae;border-radius:13px;background:#1a2942;padding:16px;margin:15px 0}.edit-panel h3{margin:0 0 8px}.edit-panel .form-grid{margin:8px 0;border:0;padding:0;background:transparent}.editor-actions{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap}.editor-actions button{flex:1}.editor-hint{font-size:13px;color:#c5cede}.row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 0;border-top:1px solid #334056;flex-wrap:wrap}.row:first-child{border-top:none}.row-title{font-weight:700}.details{font-size:12px;color:#adb9ca;margin-top:5px;line-height:1.5}.tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tools select{min-height:34px;width:auto;max-width:260px;margin:0;padding:6px}.ok{color:#8cdec0}.warn{color:#ffc377}.bad{color:#ff9b9b}.notice{border-radius:10px;background:#153f35;border:1px solid #2a8a70;color:#c1ffe5;padding:12px 15px;margin:10px 0}.error{background:#4c242c;border-color:#a84e5f;color:#ffd8de}.hint{color:#a7b4ca;font-size:12px;line-height:1.6}.pill{display:inline-block;border:1px solid #435574;border-radius:99px;padding:3px 9px;font-size:11px;color:#bcc9de}.empty{border:1px dashed #465571;padding:24px;border-radius:11px;text-align:center;color:#aebacf}.stack{display:grid;gap:12px}.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:15px}.footer{margin-top:22px}.inline-label{font-size:13px;white-space:nowrap}.money{font-size:18px;font-weight:700}.card strong.bad{color:#ff9b9b}#status[hidden]{display:none}@media(max-width:750px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.form-grid{grid-template-columns:1fr}.row{align-items:flex-start}header{padding:18px}main{padding:17px}.tools select{max-width:190px}}@media(max-width:420px){.cards{grid-template-columns:1fr 1fr}.card{padding:11px}.card strong{font-size:18px}}
+
+.auth-wrap{min-height:100vh;display:flex;justify-content:center;align-items:center;padding:32px;background:#0e121c}.auth-card{width:min(520px,100%);border:1px solid #394963;background:#192231;border-radius:17px;padding:28px}.auth-card input{margin-bottom:14px}.auth-card button{margin:5px 5px 5px 0}.auth-card h1{margin-bottom:18px}.auth-note{font-size:14px;line-height:1.5;color:#b8c4d8}.auth-error{color:#ffacb3}.auth-card[hidden],.auth-wrap[hidden],#appRoot[hidden],#loginFields[hidden],#householdFields[hidden]{display:none!important}.sync{color:#9ed7c3;font-size:12px}.btnlink{background:none;border:none;text-decoration:underline;color:#bac5ff;padding:5px}
+
+</style></head><body>
 <div id="authScreen" class="auth-wrap"><div class="auth-card"><h1>Household Budget</h1><h2>Private access</h2><p id="authNote" class="auth-note">Sign in to see your private budget. The website does not publish card balances or transactions.</p>
 <div id="loginFields"><form id="authForm" novalidate><label class="field">Email<input id="loginEmail" type="email" autocomplete="email" required></label><label class="field">Password<input id="loginPassword" type="password" autocomplete="current-password" minlength="12" required></label><button id="signin" class="primary" type="button">Sign in</button><button id="signup" type="button">Create household login</button></form></div>
 <div id="householdFields" hidden><p class="auth-note">Signed in. Create your household or enter a private invitation code.</p><button id="createHousehold" class="primary" type="button">Create my household</button><label class="field">Invitation code<input id="joinInvite" type="text" autocomplete="off" placeholder="Paste the one-time code"></label><button id="redeemInvite" type="button">Join household</button><button id="gateLogout" type="button">Sign out</button></div>
 <p class="auth-error" id="authError" role="alert" aria-live="polite"></p><p class="hint">This site uses Supabase authentication. An administrator must complete the database setup before first use. You should never enter bank passwords here.</p>
 </div></div><div id="appRoot" hidden><header><div><h1>Household Budget</h1><small>Private household budget · October data restored after login</small></div><div class="tools"><span id="syncStatus" class="sync">Connecting...</span><span id="signedIn" class="hint"></span><button id="reloadLatest" class="compact">Reload latest</button><button id="logout" class="compact">Sign out</button><button id="exportBackup" class="compact">Export backup</button><button id="importBackup" class="compact">Import backup</button><button id="importPrevious" class="compact">Restore this browser’s previous budget</button><input hidden type="file" id="backupFile" accept=".json,application/json"><button id="resetData" class="compact danger-btn">Reset shared budget</button></div></header>
-<main><nav id="tabs" aria-label="Budget sections"></nav><div class="cards" id="stats"></div><div id="status" role="status" aria-live="polite" hidden></div><div id="confirmation" aria-live="polite"></div><section class="panel" id="view"></section><p class="hint footer">Entries are saved only in your authenticated household database, with access controlled by row-level security. No bank connections or payment processing. Never enter complete card numbers, routing numbers or bank passwords. Export private backups regularly.</p></main></div><script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.2/dist/umd/supabase.min.js"></script><script defer src="/config.js"></script><script defer src="/app.js"></script><script defer src="/auth.js"></script></body></html>
+<main><nav id="tabs" aria-label="Budget sections"></nav><div class="cards" id="stats"></div><div id="status" role="status" aria-live="polite" hidden></div><div id="confirmation" aria-live="polite"></div><section class="panel" id="view"></section><p class="hint footer">Entries are saved only in your authenticated household database, with access controlled by row-level security. No bank connections or payment processing. Never enter complete card numbers, routing numbers or bank passwords. Export private backups regularly.</p></main></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.2/dist/umd/supabase.min.js"></script><script>window.BUDGET_CONFIG={"url":"https://ngeaxqiwzmuahchixowr.supabase.co","anonKey":"sb_publishable_B-pQeCtPD7LZIVFKdudAMQ_GxNF5XBE"};</script><script>
+(()=>{'use strict';
+// Budget data is loaded only after verified Supabase authentication and household membership.
+
+const makeId=()=> 'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,11);
+const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
+const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n)||0);
+const num=n=>Math.round((Number(n)||0)*100)/100;
+// Paycheck input accepts everyday money formats like 1800, 1,800.50, or $1,800.50.
+function parsePayAmount(raw){const value=String(raw??'').trim();if(!/^\$?\s*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?$/.test(value))return NaN;return Number(value.replace(/[$,\s]/g,''))}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pretty=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d||''))return 'No date';const [y,m,day]=d.split('-').map(Number);return new Date(y,m-1,day).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})};
+const seed=()=>({opening:0,people:['Member 1','Member 2'],paychecks:[],bills:[],debts:[],extras:[],transactions:[]});
+const normalize=o=>{const s=seed();if(!o||typeof o!=='object'||Array.isArray(o))return s;for(const k of ['people','paychecks','bills','debts','extras','transactions'])if(Array.isArray(o[k]))s[k]=o[k].filter(item=>k==='people'?typeof item==='string'&&item.trim().length>0:!!item&&typeof item==='object'&&!Array.isArray(item));if(!s.people.length)s.people=['Member 1','Member 2'];if(Number.isFinite(Number(o.opening)))s.opening=num(o.opening);return s};
+let storageWorking=true,state=seed(),revision=0,householdId=null,householdRole=null,saveBlocked=false,savePending=0,saveQueue=Promise.resolve();
+let tab='Dashboard',editing=null,pendingAction=null,paycheckNotice=null;const tabs=['Dashboard','Paychecks','Bills','Debt & Credit','Transactions','Bank Accounts','Settings'];
+const $=s=>document.querySelector(s);
+function save(){
+ if(!window.budgetDB||!householdId||saveBlocked){message('Budget cannot be saved. Export a backup and use Reload latest after resolving the connection.',true);return false}
+ const snapshot=JSON.parse(JSON.stringify(state));
+ savePending++;
+ updateSync('Saving...');
+ saveQueue=saveQueue.then(async()=>{
+  if(saveBlocked)return;
+  const {data,error}=await window.budgetDB.rpc('save_budget',{expected_revision:revision,new_state:snapshot});
+  if(error)throw Error(error.message||'Database rejected the update');
+  revision=Number(data);
+  savePending=Math.max(0,savePending-1);
+  updateSync(savePending?'Saving...':'Saved');
+ }).catch(err=>{saveBlocked=true;savePending=0;updateSync('Save failed');message('Your change is visible but not saved to the database: '+err.message+'. Export a backup before reloading.',true)});
+ return true;
+}
+function updateSync(text){const el=$('#syncStatus');if(el)el.textContent=text}
+
+function message(text,err=false){if(saveBlocked&&!err){text+=' WARNING: Your last change was not saved; export a backup before leaving.';err=true}const el=$('#status');el.hidden=false;el.className='notice'+(err?' error':'');el.textContent=text}
+function clearMessage(){$('#status').hidden=true}
+const sum=(a,key='amount')=>a.reduce((t,x)=>t+num(x[key]),0);
+const field=(label,name,type='text',other='')=>`<label class="field">${esc(label)}<input name="${name}" type="${type}" ${other} required></label>`;
+const select=(label,name,values)=>`<label class="field">${esc(label)}<select name="${name}">${values.map(v=>`<option value="${esc(v[0])}">${esc(v[1])}</option>`).join('')}</select></label>`;
+const frm=(kind,contents,button)=>`<form class="form-grid" data-kind="${kind}" novalidate>${contents}<button class="primary" type="button" data-submit-action>${esc(button)}</button></form>`;
+const frequencies=['One-time','Weekly','Biweekly','Twice monthly','Monthly'];
+const validDate=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d||''))return false;const [y,m,day]=d.split('-').map(Number),dt=new Date(Date.UTC(y,m-1,day));return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===day};
+const freqOptions=()=>frequencies.map(v=>[v,v]);
+function paycheckForm(){return `<form class="form-grid" data-kind="paycheck" novalidate>
+${select('Household member','member',state.people.map(p=>[p,p]))}
+<label class="field">Net paycheck amount ($)<input name="amount" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 1,800.00" required></label>
+<label class="field">Pay date<input name="date" type="date" value="${today()}" required></label>
+${select('Pay schedule','frequency',freqOptions())}
+<p class="hint" style="grid-column:1/-1;margin:0">The pay date starts at today. Change it to your actual paycheck date before adding. The Add button works in restricted browser previews.</p>
+<div class="notice error" data-form-error role="alert" hidden style="grid-column:1/-1"></div>
+<button class="primary" type="button" data-add-paycheck>Add paycheck</button>
+</form>`}
+function paycheckError(form,text){const el=form.querySelector('[data-form-error]');if(el){el.textContent=text;el.hidden=false}message(text,true)}
+function addDays(iso,days){const [y,m,d]=iso.split('-').map(Number),v=new Date(Date.UTC(y,m-1,d+days));return v.toISOString().slice(0,10)}
+function monthAt(iso,step,day){const [y,m]=iso.split('-').map(Number),v=new Date(Date.UTC(y,m-1+step,1)),last=new Date(Date.UTC(v.getUTCFullYear(),v.getUTCMonth()+1,0)).getUTCDate();return v.getUTCFullYear()+'-'+String(v.getUTCMonth()+1).padStart(2,'0')+'-'+String(Math.min(day,last)).padStart(2,'0')}
+function nextOccurrence(base,step){const f=base.frequency,d=base.date;if(f==='Weekly')return addDays(d,7*step);if(f==='Biweekly')return addDays(d,14*step);if(f==='Monthly')return monthAt(d,step,Number(d.slice(-2)));if(f==='Twice monthly'){const day=Number(d.slice(-2)),first=day<=15?day:Math.max(1,day-15),second=Math.min(28,first+15);return step%2===1?monthAt(d,Math.floor((step-1)/2)+(day>15?1:0),day>15?first:second):monthAt(d,Math.floor(step/2),day>15?second:first)}return null}
+function generate(){const until=addDays(today(),92);let count=0;for(const type of ['paychecks','bills']){for(const base of [...state[type]]){if(!base.frequency||base.frequency==='One-time'||base.parent||!validDate(base.date))continue;for(let step=1;step<=120;step++){const next=nextOccurrence(base,step);if(!next||next>until)break;if(next<=base.date||next<today())continue;if(state[type].some(p=>p.parent===base.id&&p.date===next))continue;state[type].push({...base,id:makeId(),date:next,parent:base.id,paid:false,assignment:''});count++}}}save();render();message(count?`${count} recurring items generated through ${pretty(until)}. Existing matching generated entries were skipped.`:'No new recurring items to generate. Add upcoming due dates for bills and pay dates for paychecks first, or future entries may already exist.')}
+function obligations(){return [...state.bills.filter(x=>!x.paid&&!x.budgetOnly&&num(x.amount)>0&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||'')).map(x=>({id:x.id,name:x.name,kind:'bill',amount:num(x.amount),date:x.date,assignment:x.assignment||''})),...state.debts.filter(x=>!x.paid&&x.balance>0&&num(x.minimum)>0&&/^\d{4}-\d{2}-\d{2}$/.test(x.due||'')).map(x=>({id:x.id,name:x.name+' minimum',kind:'minimum',amount:num(x.minimum),date:x.due,assignment:x.assignment||''})),...state.extras.filter(x=>!x.paid).map(x=>({id:x.id,name:(state.debts.find(d=>d.id===x.debt)?.name||'Debt')+' extra payment',kind:'extra',amount:num(x.amount),date:state.paychecks.find(p=>p.id===x.pay)?.date||'9999-12-31',assignment:x.pay||''}))].sort((a,b)=>a.date.localeCompare(b.date))}
+function cashFlow(){
+ const events=[];
+ for(const p of state.paychecks)if(p.date)events.push({date:p.date,kind:'Income',name:p.member+' paycheck',amount:num(p.amount),rank:0});
+ for(const t of state.transactions)if(t.date)events.push({date:t.date,kind:'Recorded',name:t.name,amount:-Math.abs(num(t.amount)),rank:1});
+ for(const o of obligations())if(o.date)events.push({date:o.date,kind:'Planned',name:o.name,amount:-Math.abs(o.amount),rank:2,id:o.id});
+ events.sort((a,b)=>a.date.localeCompare(b.date)||a.rank-b.rank||a.name.localeCompare(b.name));
+ let balance=num(state.opening);for(const e of events){balance=num(balance+e.amount);e.balance=balance}
+ const date=today(),current=events.filter(e=>e.date<=date),future=events.filter(e=>e.date>date);
+ const now=current.length?current[current.length-1].balance:num(state.opening);
+ const horizon=addDays(date,30),next30=future.filter(e=>e.date<=horizon);
+ const smallest=next30.reduce((low,e)=>Math.min(low,e.balance),now);
+ return {events,now,smallest,horizon,next30,negative:events.filter(e=>e.balance<0)}
+}
+function fundedPlan(){
+ // Each obligation is allocated using cash and paychecks already available on its due date.
+ // Recorded spending is reserved first, by transaction date, so paid bills are not planned twice.
+ const sources=[{id:'cash',name:'Starting cash',date:'0000-01-01',available:num(state.opening)},...state.paychecks.map(p=>({id:p.id,name:p.member+' · '+pretty(p.date),date:p.date,available:num(p.amount)}))].sort((a,b)=>a.date.localeCompare(b.date));
+ const events=[...state.transactions.filter(x=>x.date).map(t=>({kind:'spent',date:t.date,amount:Math.abs(num(t.amount)),rank:0})),...obligations().map(o=>({...o,rank:1}))].sort((a,b)=>a.date.localeCompare(b.date)||a.rank-b.rank);
+ function draw(available,amount){let left=amount,used=[];for(const s of available){const take=Math.min(Math.max(0,s.available),left);if(take>0){s.available=num(s.available-take);left=num(left-take);used.push(s.name+' '+money(take))}if(left<=0)break}return {left,used}}
+ const results=[];
+ for(const e of events){const eligible=sources.filter(s=>s.date<=e.date);if(e.kind==='spent'){draw(eligible,e.amount);continue}
+ const amt=Math.max(0,num(e.amount));
+ if(e.assignment){const source=eligible.find(s=>s.id===e.assignment);if(!source){results.push({...e,fund:'Assigned funding source is missing or arrives after due date',short:true,shortAmount:amt});continue}
+ const allocated=draw([source],amt);results.push({...e,fund:allocated.used.join(' + ')||source.name,short:allocated.left>0,shortAmount:allocated.left,manual:true});
+ }else{const allocated=draw(eligible,amt);results.push({...e,fund:allocated.used.join(' + ')||'No funding available by due date',short:allocated.left>0,shortAmount:allocated.left})}
+ }
+ return results;
+}
+function assignControl(x){return `<select aria-label="Assign funding source" data-assign="${esc(x.id)}"><option value="">Automatic</option><option value="cash" ${x.assignment==='cash'?'selected':''}>Starting cash</option>${state.paychecks.map(p=>`<option value="${esc(p.id)}" ${x.assignment===p.id?'selected':''}>${esc(p.member)} · ${pretty(p.date)}</option>`).join('')}</select>`}
+function row(name,details,amount,actions=''){return `<div class="row"><div><div class="row-title">${esc(name)}</div><div class="details">${details}</div></div><div class="tools"><span class="money">${money(amount)}</span>${actions}</div></div>`}
+function editingPanel(){
+ if(!editing)return '';
+ const {kind,id}=editing;
+ if(kind==='paycheck'){
+  const p=state.paychecks.find(p=>p.id===id);if(!p)return '';
+  return `<section class="edit-panel" aria-label="Edit paycheck"><h3>Edit paycheck</h3><p class="editor-hint">Correct an existing paycheck without removing it from your budget.</p><form class="form-grid" data-kind="edit-paycheck" data-id="${esc(p.id)}" novalidate>
+  <label class="field">Household member<select name="member">${state.people.map(name=>`<option value="${esc(name)}" ${name===p.member?'selected':''}>${esc(name)}</option>`).join('')}</select></label>
+  <label class="field">Net paycheck amount ($)<input name="amount" type="text" inputmode="decimal" value="${num(p.amount)}" required></label>
+  <label class="field">Pay date<input name="date" type="date" value="${esc(p.date)}" required></label>
+  <label class="field">Pay schedule<select name="frequency">${frequencies.map(f=>`<option value="${esc(f)}" ${f===p.frequency?'selected':''}>${esc(f)}</option>`).join('')}</select></label>
+  <div class="notice error" data-form-error role="alert" hidden style="grid-column:1/-1"></div>
+  <div class="editor-actions"><button type="button" class="primary" data-save-paycheck>Save paycheck</button><button type="button" data-cancel-edit="true">Cancel</button></div></form></section>`;
+ }
+ if(kind==='bill'){
+  const b=state.bills.find(b=>b.id===id);if(!b)return '';
+  return `<section class="edit-panel" aria-label="Edit ${esc(b.name)}"><h3>Edit bill: ${esc(b.name)}</h3><p class="editor-hint">Make your changes below and select Save changes. Leave the amount or date empty if not yet known.</p><form class="form-grid" data-kind="edit-bill" data-id="${esc(b.id)}">
+  <label class="field">Bill name<input name="name" value="${esc(b.name)}" required maxlength="90"></label>
+  <label class="field">Amount ($)<input name="amount" type="number" min="0" step="0.01" value="${b.amount==null?'':num(b.amount)}" placeholder="Unknown"></label>
+  <label class="field">Next due date<input name="date" type="date" value="${esc(b.date||'')}"></label>
+  ${select('Repeat','frequency',freqOptions()).replace(`value="${esc(b.frequency||'One-time')}"`,`value="${esc(b.frequency||'One-time')}" selected`)}
+  <div class="editor-actions"><button type="button" class="primary" data-submit-action>Save changes</button><button type="button" data-cancel-edit="true">Cancel</button></div></form></section>`;
+ }
+ if(kind==='debt'){
+  const d=state.debts.find(d=>d.id===id);if(!d)return '';
+  return `<section class="edit-panel" aria-label="Edit ${esc(d.name)}"><h3>Edit debt: ${esc(d.name)}</h3><p class="editor-hint">Balance and payment changes are saved to this account. A blank APR, due date or credit limit remains unknown.</p><form class="form-grid" data-kind="edit-debt" data-id="${esc(d.id)}">
+  <label class="field">Account name<input name="name" value="${esc(d.name)}" maxlength="90" required></label>
+  <label class="field">Type<select name="type">${['Credit Card','Auto Loan','Personal Loan','Mortgage','Student Loan','Other'].map(t=>`<option value="${esc(t)}" ${d.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
+  <label class="field">Current balance ($)<input name="balance" type="number" step="0.01" min="0" value="${num(d.balance)}" required></label>
+  <label class="field">Minimum payment ($)<input name="minimum" type="number" step="0.01" min="0" value="${d.minimum==null?'':num(d.minimum)}" placeholder="Unknown"></label>
+  <label class="field">Next due date<input name="due" type="date" value="${esc(d.due||'')}"></label>
+  <label class="field">APR (%)<input name="apr" type="number" step="0.01" min="0" max="100" value="${d.apr==null?'':num(d.apr)}" placeholder="Unknown"></label>
+  <label class="field">Credit limit ($)<input name="limit" type="number" step="0.01" min="0" value="${d.limit==null?'':num(d.limit)}" placeholder="Unknown"></label>
+  <div class="editor-actions"><button type="button" class="primary" data-submit-action>Save changes</button><button type="button" data-cancel-edit="true">Cancel</button></div></form></section>`;
+ }
+ return '';
+}
+function render(){const confirm=$('#confirmation');confirm.innerHTML=pendingAction?`<div class="notice error"><strong>${pendingAction.type==='reset'?'Reset to an empty budget?':'Import backup and replace current budget?'}</strong> This replaces the shared household budget for all members. <div class="tools" style="margin-top:10px"><button type="button" class="danger-btn" data-confirm-action>Yes, replace budget</button><button type="button" data-cancel-action>Cancel</button></div></div>`:'';const unpaid=obligations(),out=sum(unpaid),paid=sum(state.transactions.filter(t=>['expense','debt'].includes(t.kind))),income=sum(state.paychecks),flow=cashFlow();
+ const cards=[['Projected balance',num(state.opening+income-paid-out)],['Estimated balance today',flow.now],['Lowest balance · next 30 days',flow.smallest],['Unpaid bills & payments',out]];
+ $('#stats').innerHTML=cards.map(([name,value])=>`<div class="card"><small>${esc(name)}</small><strong class="${value<0?'bad':''}">${money(value)}</strong></div>`).join('');
+ $('#tabs').innerHTML=tabs.map(t=>`<button data-tab="${esc(t)}" class="${t===tab?'active':''}">${esc(t)}</button>`).join('');
+ let html=`<h2>${esc(tab)}</h2>`;
+ if(tab==='Dashboard'){
+  if(!state.bills.length&&!state.debts.length&&!state.paychecks.length){html+='<div class="notice"><strong>Welcome to your online budget.</strong> Your private household budget is empty. Restore your historical backup using Import backup, or add paychecks, bills and debts. Data is saved securely in the household database.</div>'}
+  else {const undatedBills=state.bills.filter(b=>!b.date&&!b.budgetOnly).length,undatedDebts=state.debts.filter(d=>!d.due).length;if(undatedBills||undatedDebts)html+='<div class="notice">'+undatedBills+' bill(s) and '+undatedDebts+' debt account(s) have no upcoming payment date, so they are excluded from future cash-flow totals until you provide dates.</div>'}
+
+  html+='<p class="muted">Planned obligations use cash and paychecks available no later than the due date. Automatic funding may split a bill across multiple sources.</p>';
+  const plan=fundedPlan(),warnings=plan.filter(o=>o.short);
+  if(warnings.length)html+=`<div class="notice error"><strong>${warnings.length} funding warning${warnings.length===1?'':'s'}</strong> — These payments have amounts not covered by available income on their due dates. A manual assignment may also need changing.</div>`;
+  html+='<h3>Bill funding plan</h3>';
+  html+=plan.length?plan.map(o=>row(o.name,`${pretty(o.date)} · ${esc(o.fund)} · <span class="${o.short?'bad':'ok'}">${o.short?'Short '+money(o.shortAmount):'Fully planned'}${o.manual?' · Manual':''}</span>`,o.amount)).join(''):'<div class="empty">No unpaid obligations.</div>';
+  html+='<h3>Cash-flow timeline · next 30 days</h3>';
+  html+=flow.next30.length?flow.next30.map(e=>row(e.name,`${pretty(e.date)} · ${esc(e.kind)} · Balance after: <span class="${e.balance<0?'bad':'ok'}">${money(e.balance)}</span>`,Math.abs(e.amount),`<span class="pill">${e.amount>=0?'Income':'Outflow'}</span>`)).join(''):'<div class="empty">No forecasted activity in the next 30 days.</div>';
+  html+=`<p class="hint">Estimated balance today: ${money(flow.now)}. This is based on your starting cash, entered paychecks, recorded transactions, and unpaid due dates; it is not your bank balance. The projected balance includes all entered future dates, not only the next 30 days. Funding warnings do not prevent adding or manually assigning an expense.</p>`;
+ }
+if(tab==='Paychecks'){html+='<div class="bar"><button id="generate" class="primary">Generate next 3 months</button><span class="hint">Enter an amount, select a date and click Add paycheck. A confirmation or error appears above the form.</span></div>';html+=editingPanel();html+=paycheckForm();if(paycheckNotice)html+=`<div class="notice ${paycheckNotice.error?'error':''}" role="status" aria-live="polite">${esc(paycheckNotice.text)}</div>`;html+='<p class="hint">A confirmation appears under the form after adding. Your paychecks are saved to the private household database and can be shared with authorized members.</p>';const all=[...state.paychecks].sort((a,b)=>String(a?.date||'').localeCompare(String(b?.date||'')));html+=all.map(p=>row(p.member,`${pretty(p.date)} · ${esc(p.frequency||'One-time')}${p.parent?' · Generated':''}`,p.amount,`<button class="compact" data-edit-paycheck="${esc(p.id)}">Edit</button><button class="compact danger-btn" data-remove-pay="${esc(p.id)}">Remove</button>`)).join('')||'<div class="empty">No paychecks yet.</div>'}
+if(tab==='Bills'){html+='<p class="muted">Add your bills and upcoming payment dates. Undated bills are excluded from forecasting. Any imported Credit Cards budget line is for planning only, not a second debt minimum.</p>';html+=editingPanel();html+=frm('bill',field('Bill name','name','text','placeholder="Rent, electricity, internet..."')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Due date','date','date')+select('Repeat','frequency',freqOptions()),'Add bill');html+=state.bills.map(b=>row(b.name,`${b.date?pretty(b.date):'<span class="warn">Due date needed</span>'} · ${b.paid?'<span class="ok">Paid</span>':'Unpaid'} · ${esc(b.frequency||'One-time')}${b.budgetOnly?' · Budget allocation, not a second debt payment':''}`,b.amount,`<button class="compact" data-edit-bill="${esc(b.id)}">Edit bill</button>${b.budgetOnly?'<span class="pill">Reference only</span>':`<label class="inline-label"><input type="checkbox" data-paid-bill="${esc(b.id)}" ${b.paid?'checked':''}>Paid</label>${assignControl(b)}`}<button class="compact danger-btn" data-remove-bill="${esc(b.id)}">Remove</button>`)).join('')||'<div class="empty">No bills yet.</div>'}
+if(tab==='Debt & Credit'){html+='<p class="muted">Track credit cards and loans here. Set a next due date to include each minimum payment in the funding forecast. Missing APRs are not estimated.</p>';html+=editingPanel();html+=frm('debt',field('Account nickname','name')+select('Type','type',['Credit Card','Auto Loan','Personal Loan','Mortgage','Student Loan','Other'].map(v=>[v,v]))+field('Current balance','balance','number','min="0" step="0.01"')+field('Minimum payment','minimum','number','min="0.01" step="0.01"')+field('Next due date','due','date')+field('APR (%)','apr','number','min="0" step="0.01"')+field('Credit limit (0 for loans)','limit','number','min="0" step="0.01"'),'Add debt');html+=state.debts.map(d=>row(d.name,`${esc(d.type)} · ${d.apr==null?'APR not provided':num(d.apr)+'% APR'} · Minimum ${num(d.minimum)>0?money(d.minimum):'<span class="bad">Not entered</span>'} · Due ${d.due?pretty(d.due):d.dueDay?'<span class="warn">Day '+d.dueDay+' · set next date</span>':'<span class="bad">Not entered</span>'}${num(d.limit)>0?' · Limit '+money(d.limit):''}`,d.balance,`<label class="inline-label"><input type="checkbox" data-paid-debt="${esc(d.id)}" ${d.paid?'checked':''}>Minimum paid</label>${assignControl(d)}<button class="compact" data-edit-debt="${esc(d.id)}">Edit details</button><button class="compact danger-btn" data-remove-debt="${esc(d.id)}">Remove</button>`)).join('')||'<div class="empty">No debts yet.</div>';html+='<h3>Schedule an extra payment</h3>';if(state.debts.length&&state.paychecks.length)html+=frm('extra',select('Debt','debt',state.debts.map(d=>[d.id,d.name]))+select('From paycheck','paycheck',state.paychecks.map(p=>[p.id,p.member+' · '+pretty(p.date)]))+field('Extra payment ($)','amount','number','min="0.01" step="0.01"'),'Schedule extra payment');else html+='<p class="hint">Add at least one debt and paycheck first.</p>';html+=state.extras.map(x=>row(state.debts.find(d=>d.id===x.debt)?.name||'Debt',`Extra payment · ${x.paid?'Paid':'Scheduled'}`,x.amount,`<label class="inline-label"><input type="checkbox" data-paid-extra="${esc(x.id)}" ${x.paid?'checked':''}>Paid</label><button class="compact danger-btn" data-remove-extra="${esc(x.id)}">Remove</button>`)).join('');html+='<p class="hint">Account balances and interest rates are entered manually and are not linked to your bank. Debt payments are treated as reductions in principal; this app does not calculate statement interest or provide financial advice.</p>'}
+if(tab==='Transactions'){html+=frm('expense',field('Expense description','name')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Transaction date','date','date'),'Add expense');html+=state.transactions.map(x=>row(x.name,`${pretty(x.date)} · ${esc(x.kind)}`,x.amount,`<button class="compact danger-btn" data-remove-transaction="${esc(x.id)}">Remove</button>`)).join('')||'<div class="empty">No transactions recorded.</div>'}
+if(tab==='Bank Accounts')html+='<div class="empty">Checking and savings account management will be added separately. No bank account connection is active.</div>';
+if(tab==='Settings'){html+='<p class="muted">Customize members and your starting available cash. These settings affect the combined household plan.</p>';html+=frm('opening',`<label class="field">Starting household cash ($)<input type="number" name="opening" min="0" step="0.01" value="${num(state.opening)}" required></label>`,'Save cash balance');html+=frm('member',field('New household member','name','text','maxlength="60"'),'Add household member');html+='<h3>Household members</h3>'+state.people.map(p=>row(p,'Available for paycheck assignment',0,`<button class="compact danger-btn" data-remove-member="${esc(p)}">Remove</button>`)).join('');html+='<h3>Website access</h3><p class="hint">Only approved signed-in people can access this household budget. Generate a one-time invitation code for another household member.</p><div class="bar"><button type="button" id="createInvite">Create 7-day invite</button></div><p class="hint">Invitation codes are sensitive. Share privately with the intended person; each code works once.</p><div id="inviteResult"></div>'}
+$('#view').innerHTML=html}
+function pay(entry,kind,checked){if(Boolean(entry.paid)===checked)return false;const amount=num(kind==='minimum'?entry.minimum:entry.amount);const debt=kind==='minimum'?entry:kind==='extra'?state.debts.find(d=>d.id===entry.debt):null;if(checked){if(debt&&debt.balance<amount){message('Payment exceeds the remaining debt balance.',true);return false}if(debt)debt.balance=num(debt.balance-amount);entry.paid=true;state.transactions.unshift({id:makeId(),source:entry.id,name:kind==='bill'?entry.name:(debt?.name||'Debt')+' payment',amount,date:today(),kind:kind==='bill'?'expense':'debt'})}else{const tx=state.transactions.find(t=>t.source===entry.id);if(tx){if(debt)debt.balance=num(debt.balance+tx.amount);state.transactions=state.transactions.filter(t=>t.id!==tx.id)}entry.paid=false}return true}
+function submit(e){const form=e.target.closest('form[data-kind]');if(!form)return;e.preventDefault();const kind=form.dataset.kind,v=Object.fromEntries(new FormData(form).entries()),amount=kind==='paycheck'||kind==='edit-paycheck'?parsePayAmount(v.amount):Number(v.amount);
+ if(kind==='paycheck'||kind==='edit-paycheck'){
+  if(!state.people.includes(v.member)){paycheckError(form,'Please choose a household member.');return}
+  if(!Number.isFinite(amount)||amount<=0){paycheckError(form,'Please enter a valid paycheck amount greater than $0, such as 1,800.00.');return}
+  if(!validDate(v.date)){paycheckError(form,'Please select a valid pay date.');return}
+  if(!frequencies.includes(v.frequency)){paycheckError(form,'Please choose a valid pay schedule.');return}
+  if(kind==='edit-paycheck'){
+   const p=state.paychecks.find(p=>p.id===form.dataset.id);
+   if(!p){paycheckError(form,'This paycheck could not be found.');return}
+   p.member=v.member;p.amount=num(amount);p.date=v.date;p.frequency=v.frequency;
+   editing=null;
+  }else state.paychecks.push({id:makeId(),member:v.member,amount:num(amount),date:v.date,frequency:v.frequency});
+  const saved=save();
+  paycheckNotice={text:(kind==='edit-paycheck'?'Paycheck updated: ':'Paycheck added: ')+v.member+' · '+money(amount)+' · '+pretty(v.date)+(saved?' — saving to your household database.':' — visible now but not saved. Export a backup before leaving.'),error:!saved};
+  render();message(paycheckNotice.text,!saved);
+  return;
+ }
+ if(kind==='edit-bill'){
+  const b=state.bills.find(b=>b.id===form.dataset.id);if(!b)return;
+  const amt=v.amount.trim()===''?null:Number(v.amount);
+  if(!v.name.trim()||(amt!==null&&(!Number.isFinite(amt)||amt<0))||(v.date&&!validDate(v.date))||!frequencies.includes(v.frequency)){message('Enter a bill name, valid amount, and valid due date.',true);return}
+  b.name=v.name.trim();b.amount=amt===null?null:num(amt);b.date=v.date;b.frequency=v.frequency;
+  editing=null;save();render();message('Bill updated successfully.');return;
+ }
+ if(kind==='edit-debt'){
+  const d=state.debts.find(d=>d.id===form.dataset.id);if(!d)return;
+  const balance=Number(v.balance),minimum=v.minimum.trim()===''?null:Number(v.minimum),apr=v.apr.trim()===''?null:Number(v.apr),limit=v.limit.trim()===''?null:Number(v.limit);
+  if(!v.name.trim()||!Number.isFinite(balance)||balance<0||(minimum!==null&&(!Number.isFinite(minimum)||minimum<0))||(apr!==null&&(!Number.isFinite(apr)||apr<0||apr>100))||(limit!==null&&(!Number.isFinite(limit)||limit<0))||(v.due&&!validDate(v.due))){message('Enter valid debt information. APR cannot exceed 100%.',true);return}
+  d.name=v.name.trim();d.type=v.type;d.balance=num(balance);d.minimum=minimum===null?null:num(minimum);d.apr=apr===null?null:num(apr);d.limit=limit===null?null:num(limit);d.due=v.due;
+  editing=null;save();render();message('Debt updated successfully.');return;
+ }
+ if(['paycheck','bill','expense','extra'].includes(kind)&&(!Number.isFinite(amount)||amount<=0)){message('Enter a valid amount greater than zero.',true);return}if(kind==='paycheck'){return;}
+else if(kind==='bill'){if(!v.name.trim()||!v.date){message('Enter a bill name and due date.',true);return}state.bills.push({id:makeId(),name:v.name.trim(),amount:num(amount),date:v.date,frequency:v.frequency,paid:false,assignment:''})}
+else if(kind==='debt'){const balance=Number(v.balance),minimum=Number(v.minimum),apr=Number(v.apr),limit=Number(v.limit);if(!v.name.trim()||!v.due||![balance,minimum,apr,limit].every(Number.isFinite)||balance<0||minimum<=0||apr<0||limit<0){message('Complete the debt fields with valid amounts.',true);return}state.debts.push({id:makeId(),name:v.name.trim(),type:v.type,balance:num(balance),minimum:num(minimum),due:v.due,apr:num(apr),limit:num(limit),paid:false,assignment:''})}
+else if(kind==='expense'){if(!v.name.trim()||!v.date){message('Enter a description and date.',true);return}state.transactions.unshift({id:makeId(),name:v.name.trim(),amount:num(amount),date:v.date,kind:'expense'})}
+else if(kind==='extra'){const d=state.debts.find(d=>d.id===v.debt),p=state.paychecks.find(p=>p.id===v.paycheck),reserved=sum(state.extras.filter(x=>x.debt===v.debt&&!x.paid));if(!d||!p||num(amount)+reserved>num(d.balance)){message('Choose an existing paycheck and debt; total planned extras cannot exceed the remaining balance.',true);return}state.extras.push({id:makeId(),debt:v.debt,pay:v.paycheck,amount:num(amount),paid:false})}
+else if(kind==='opening'){if(!Number.isFinite(Number(v.opening))||Number(v.opening)<0){message('Starting cash must be zero or more.',true);return}state.opening=num(v.opening)}
+else if(kind==='member'){const name=v.name?.trim();if(!name||state.people.some(p=>p.toLowerCase()===name.toLowerCase())){message('Enter a unique household member name.',true);return}state.people.push(name)}
+save();render();message(kind==='paycheck'?'Paycheck added; saving to private household database.':'Saved successfully.');}
+function changed(e){const x=e.target;if(x.hasAttribute('data-assign')){const o=[...state.bills,...state.debts].find(p=>p.id===x.dataset.assign);if(o){o.assignment=x.value;save();render();message('Manual funding assignment saved.')}return}const configs=[['paidBill','bills','bill'],['paidDebt','debts','minimum'],['paidExtra','extras','extra']];for(const [attr,collection,kind] of configs){if(x.dataset[attr]===undefined)continue;const o=state[collection].find(p=>p.id===x.dataset[attr]);if(kind==='bill'&&o?.budgetOnly){message('This is a reference allocation, not a bill to pay.',true);render();return}if(o&&pay(o,kind,x.checked)){save();render();message(x.checked?'Payment recorded.':'Payment marked unpaid and reversed.')}else render();return}}
+function clicked(e){const button=e.target.closest('button');if(!button)return;
+if(button.hasAttribute('data-add-paycheck')||button.hasAttribute('data-save-paycheck')||button.hasAttribute('data-submit-action')){
+ e.preventDefault();
+ if(button.hasAttribute('data-add-paycheck')||button.hasAttribute('data-save-paycheck'))paycheckNotice=null;
+ const form=button.closest('form[data-kind]');
+ if(!form){message('The paycheck form could not be found. Please reopen the Paychecks tab.',true);return}
+ try{
+   // Deliberately bypass native form submission; some embedded HTML viewers suppress submit events.
+   submit({target:form,preventDefault(){}});
+ }catch(error){
+   console.error('Paycheck action failed:',error);
+   const details=error&&error.message?error.message:'Unknown error';
+   message('Unable to complete this action: '+details+'. Please report this exact message.',true);
+   const local=form.querySelector('[data-form-error]');if(local){local.hidden=false;local.textContent='Unable to complete this action: '+details}
+ }
+ return;
+}
+if(button.id==='createInvite'){
+ (async()=>{const {data,error}=await window.budgetDB.rpc('issue_invite');if(error){message('Could not create invite: '+error.message,true);return} const el=$('#inviteResult');if(el){el.textContent='One-time invitation code: '+data;el.className='notice'}})();return;
+}
+if(button.dataset.tab){tab=button.dataset.tab;editing=null;clearMessage();render();return}if(button.id==='generate'){generate();return}if(button.dataset.confirmAction!==undefined&&pendingAction){
+ const action=pendingAction;pendingAction=null;editing=null;
+ state=action.type==='reset'?seed():normalize(action.data);
+ const ok=save();tab='Dashboard';render();message((action.type==='reset'?'The household budget reset was requested.':'Backup loaded into the shared household budget. Saving...')+(ok?'':' Not yet saved.'),!ok);return;
+}
+if(button.dataset.cancelAction!==undefined){pendingAction=null;render();message('Canceled. No budget data was replaced.');return}
+if(button.dataset.cancelEdit!==undefined){editing=null;render();message('Editing canceled.');return}
+if(button.dataset.editPaycheck!==undefined){editing={kind:'paycheck',id:button.dataset.editPaycheck};render();document.querySelector('.edit-panel input[name="amount"]')?.focus();return}
+if(button.dataset.editBill!==undefined){editing={kind:'bill',id:button.dataset.editBill};render();document.querySelector('.edit-panel input[name="name"]')?.focus();return}
+if(button.dataset.editDebt!==undefined){editing={kind:'debt',id:button.dataset.editDebt};render();document.querySelector('.edit-panel input[name="name"]')?.focus();return}
+const removals=[['removePay','paychecks'],['removeBill','bills'],['removeDebt','debts'],['removeExtra','extras'],['removeTransaction','transactions']];for(const [attr,key] of removals){if(button.dataset[attr]===undefined)continue;const val=button.dataset[attr],entry=state[key].find(x=>x.id===val);if(!entry)return;if(key==='paychecks'&&state.extras.some(x=>x.pay===val)){message('Remove extra payments assigned to this paycheck first.',true);return}if(key==='debts'&&state.extras.some(x=>x.debt===val)){message('Remove scheduled extra payments on this debt first.',true);return}if(key==='bills'&&entry.paid||key==='debts'&&entry.paid||key==='extras'&&entry.paid){message('Unmark the payment before removing it.',true);return}if(key==='transactions'&&entry.source){message('Unmark the linked bill or debt payment instead of deleting its transaction.',true);return}state[key]=state[key].filter(x=>x.id!==val);if(key==='paychecks')for(const x of [...state.bills,...state.debts])if(x.assignment===val)x.assignment='';save();render();message('Entry removed.');return}if(button.dataset.removeMember!==undefined){const val=button.dataset.removeMember;if(state.people.length<=1||state.paychecks.some(p=>p.member===val)){message('Keep at least one member; remove their paychecks before deleting this member.',true);return}state.people=state.people.filter(p=>p!==val);save();render();message('Member removed.')}}
+$('#view').addEventListener('submit',submit);$('#view').addEventListener('input',e=>{const el=e.target.closest('form[data-kind="paycheck"],form[data-kind="edit-paycheck"]')?.querySelector('[data-form-error]');if(el)el.hidden=true});$('#view').addEventListener('change',changed);$('#view').addEventListener('click',clicked);$('#tabs').addEventListener('click',clicked);$('#confirmation').addEventListener('click',clicked);
+$('#exportBackup').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({version:12,data:state},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='household-budget-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)});
+$('#importPrevious').addEventListener('click',()=>{try{const raw=localStorage.getItem('household-budget-hosted-v1');if(!raw){message('No previous budget was found in this browser. To restore older HTML-file data, use an exported JSON backup.',true);return}const data=JSON.parse(raw);if(!['people','paychecks','bills','debts','extras','transactions'].every(k=>Array.isArray(data[k])))throw Error('Previous budget format was not recognized');pendingAction={type:'import',data};render();message('Previous browser budget is ready. Confirm above to import it into the private household database.');}catch(err){message('Unable to read previous budget: '+err.message,true)}});
+$('#importBackup').addEventListener('click',()=>$('#backupFile').click());$('#backupFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>2e6)throw Error('File is too large');const raw=JSON.parse(await file.text()),data=raw.data;if(!data||!['people','paychecks','bills','debts','extras','transactions'].every(k=>Array.isArray(data[k])))throw Error('Not a valid household budget backup');pendingAction={type:'import',data};render();message('Backup loaded and ready to import. Confirm above to replace the current budget.')}catch(err){message('Import failed: '+err.message,true)}finally{e.target.value=''}});
+$('#resetData').addEventListener('click',()=>{pendingAction={type:'reset'};render();message('Please confirm above before replacing the shared household budget.')});
+$('#reloadLatest').addEventListener('click',()=>window.loadHouseholdBudget?.());
+$('#logout').addEventListener('click',async()=>{await saveQueue;await window.budgetDB?.auth.signOut();window.showLogin?.();});
+window.showBudget=({household,role,state:remoteState,remoteRevision,email})=>{householdId=household;householdRole=role;state=normalize(remoteState);revision=remoteRevision;saveBlocked=false;savePending=0;saveQueue=Promise.resolve();tab='Dashboard';editing=null;pendingAction=null;paycheckNotice=null;$('#appRoot').hidden=false;$('#authScreen').hidden=true;$('#signedIn').textContent=email;updateSync('Saved');render();};
+window.showLogin=()=>{householdId=null;$('#appRoot').hidden=true;$('#authScreen').hidden=false;};
+
+})();
+</script><script>
+(()=>{'use strict';
+const $=s=>document.querySelector(s);
+const note=$('#authNote'), errorBox=$('#authError'), fields=$('#loginFields'), membership=$('#householdFields');
+let client=null, busy=false;
+const fail=(text)=>{errorBox.textContent=text||''};
+const setNote=text=>{note.textContent=text};
+function working(value){busy=value;for(const b of document.querySelectorAll('#authScreen button'))b.disabled=value}
+function showEntry(){window.showLogin?.();fields.hidden=false;membership.hidden=true}
+function showHousehold(email){window.showLogin?.();fields.hidden=true;membership.hidden=false;setNote('Signed in as '+email+'. Create a new household or join one with an invitation code.');}
+async function loadBudget(){
+ if(!client)return;
+ const {data:{user},error:authError}=await client.auth.getUser();
+ if(authError||!user){showEntry();return}
+ working(true);fail('');
+ try{
+  const member=await client.from('household_members').select('household_id,role').eq('user_id',user.id).maybeSingle();
+  if(member.error)throw Error(member.error.message);
+  if(!member.data){showHousehold(user.email||'household member');return}
+  const result=await client.from('budgets').select('revision,state').eq('household_id',member.data.household_id).single();
+  if(result.error)throw Error(result.error.message);
+  window.showBudget({household:member.data.household_id,role:member.data.role,state:result.data.state,remoteRevision:result.data.revision,email:user.email||''});
+ }catch(err){window.showLogin?.();setNote('We could not open your private household budget.');fail(err.message||'Something went wrong.');}
+ finally{working(false)}
+}
+window.loadHouseholdBudget=loadBudget;
+async function signin(e){e.preventDefault();if(!client)return;working(true);fail('');try{
+  const email=$('#loginEmail').value.trim(), password=$('#loginPassword').value;
+  if(!email||password.length<12)throw Error('Enter a valid email and a password of at least 12 characters.');
+  const {error}=await client.auth.signInWithPassword({email,password});
+  if(error)throw Error(error.message);
+  await loadBudget();
+ }catch(err){fail(err.message||'Sign-in failed.')}finally{working(false)}}
+async function signup(){if(!client)return;working(true);fail('');try{
+  const email=$('#loginEmail').value.trim(),password=$('#loginPassword').value;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||password.length<12)throw Error('Enter a valid email and a password of at least 12 characters.');
+  const {data,error}=await client.auth.signUp({email,password,options:{emailRedirectTo:location.origin}});
+  if(error)throw Error(error.message);
+  if(data.session){await loadBudget();return}
+  setNote('Account request submitted. Check your email for a verification link, then sign in.');
+ }catch(err){fail(err.message||'Could not create an account.')}finally{working(false)}}
+async function createHousehold(){if(!client)return;working(true);fail('');try{
+ const {error}=await client.rpc('create_household');
+ if(error)throw Error(error.message);
+ await loadBudget();
+ }catch(err){fail(err.message||'Could not create household.')}finally{working(false)}}
+async function joinHousehold(){if(!client)return;working(true);fail('');try{
+ const code=$('#joinInvite').value.trim();if(code.length<20)throw Error('Paste a valid private invitation code.');
+ const {error}=await client.rpc('redeem_invite',{invite_code:code});
+ if(error)throw Error(error.message);
+ $('#joinInvite').value='';await loadBudget();
+ }catch(err){fail(err.message||'Could not join household.')}finally{working(false)}}
+$('#authForm').addEventListener('submit',signin);
+$('#signin').addEventListener('click',signin);
+$('#signup').addEventListener('click',signup);
+$('#createHousehold').addEventListener('click',createHousehold);
+$('#redeemInvite').addEventListener('click',joinHousehold);
+$('#gateLogout').addEventListener('click',()=>client?.auth.signOut());
+const cfg=window.BUDGET_CONFIG||{};
+if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(cfg.url||'')||!cfg.anonKey){
+ fields.hidden=true; membership.hidden=true;
+ setNote('Private database connection is not configured yet. The financial dashboard is intentionally unavailable until the administrator finishes setup.');
+ fail('Setup incomplete — no budgeting information is publicly accessible.');
+ return;
+}
+if(!window.supabase?.createClient){fields.hidden=true;setNote('Secure login component is unavailable. Reload or try another browser.');return}
+client=window.supabase.createClient(cfg.url,cfg.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+window.budgetDB=client;
+client.auth.onAuthStateChange((event)=>{
+ if(event==='SIGNED_OUT'){showEntry();setNote('Sign in to see your private household budget.');fail('')}
+ if(event==='SIGNED_IN'||event==='INITIAL_SESSION'){Promise.resolve().then(()=>loadBudget())}
+});
+})();
+
+</script></body></html>
