@@ -21,7 +21,8 @@ let options={};
 const defaultOptions=(state)=>{
  const now=localToday(),year=Number(now.slice(0,4));
  const upcomingChristmas=now>(year+'-12-25')?year+1:year;
- return {cash:Number(state.opening)||0,grocery:100,gas:0,christmas:0,christmasDate:upcomingChristmas+'-12-20',cushion:500};
+ const grocery=Number.isFinite(Number(state.groceryWeekly))&&state.groceryWeekly!==undefined&&state.groceryWeekly!==null?Math.max(0,Math.min(5000,Number(state.groceryWeekly))):100;
+ return {cash:Number(state.opening)||0,grocery,gas:0,christmas:0,christmasDate:upcomingChristmas+'-12-20',cushion:500};
 };
 function reset(state){
  sourceBaseline=copy(state);
@@ -70,10 +71,13 @@ function ensure(state){
  if(currentFingerprint===sourceFingerprint)return;
  const previousBaseline=sourceBaseline;
  const wasCashEdited=cents(options.cash)!==cents(previousBaseline?.opening);
+ const previousGrocery=Number.isFinite(Number(previousBaseline?.groceryWeekly))&&previousBaseline?.groceryWeekly!==undefined&&previousBaseline?.groceryWeekly!==null?Number(previousBaseline.groceryWeekly):100;
+ const groceryWasEdited=cents(options.grocery)!==cents(previousGrocery);
  snapshot=mergeSandbox(snapshot,previousBaseline,state);
  sourceBaseline=copy(state);
  sourceFingerprint=currentFingerprint;
  if(!wasCashEdited)options.cash=Number(state.opening)||0;
+ if(!groceryWasEdited){options.grocery=Number.isFinite(Number(state.groceryWeekly))&&state.groceryWeekly!==undefined&&state.groceryWeekly!==null?Math.max(0,Math.min(5000,Number(state.groceryWeekly))):100;}
  notice='Updated from the latest household budget. Forecast-only changes are preserved; your original tabs were not edited.';
 }
 function endDate(start,months){const [y,m]=start.split('-').map(Number),d=new Date(Date.UTC(y,m-1+months+1,0));return iso(d.getTime());}
