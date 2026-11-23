@@ -13,7 +13,7 @@ const fmt=s=>new Date(time(s)).toLocaleDateString('en-US',{month:'short',day:'nu
 const monthEnd=(year,month)=>new Date(Date.UTC(year,month,0)).getUTCDate();
 const dayAt=(year,month,day)=>year+'-'+String(month).padStart(2,'0')+'-'+String(Math.min(monthEnd(year,month),day)).padStart(2,'0');
 const between=d=>d>=START&&d<=END;
-const ui={opening:null,weekly:100,buffer:500,novExtra:0,decExtra:0,novUndated:false,deferHouse:true,gasWeekly:0,christmas:0,christmasDate:'2026-12-20'};
+const ui={opening:null,weekly:100,buffer:500,novExtra:0,decExtra:0,novUndated:false,deferHouse:true,gasWeekly:0,christmas:0,christmasDate:'2026-12-20',controlsOpen:false};
 function datesFor(item){
  if(!dateOK(item.date))return [];
  const anchor=item.date,frequency=item.frequency||'One-time',out=[];
@@ -230,7 +230,7 @@ function plot(f){
 }
 
 function weeklyBreakdown(f,context){
- let html='<section class="wk-section"><div class="wk-head"><div><h3>Week-by-week money in & money out</h3><p class="hint">Every week carries its ending cash into the next. All amounts are projections from saved entries and unsaved scenario allowances.</p></div><button type="button" data-tab="Nov–Dec Forecast" class="compact">Adjust Christmas, gas & groceries</button></div>';
+ let html='<section class="wk-section"><div class="wk-head"><div><h3>Week-by-week money in & money out</h3><p class="hint">Each week carries its ending balance into the next. Includes confirmed entries and editable spending estimates.</p></div><button type="button" id="wkChangePlan" class="compact">Edit spending estimates</button></div>';
  const TBD='<span class="wk-tbd">TBD — not deducted</span>';
  for(const w of f.weeks){
   const startLabel=fmt(w.start),endLabel=fmt(w.end),details=w.events||[],c=w.categories;
@@ -255,12 +255,12 @@ function render(state){
  let html='<section id="decForecast"><div class="dec-lede"><strong>November 23 – December 31, 2026</strong>. Plan weekly income and spending with your actual saved bills and paychecks. The house payment is ignored in these forecasts. Christmas and gas remain unbudgeted until you enter estimates.</div>';
  html+='<div class="dec-stats">'+cell('November 30 cash',s.novClose,s.novClose<0?'dec-red':'')+cell('December 31 cash',s.decClose,s.decClose<0?'dec-red':'')+cell('Total Christmas scenario',s.christmasCost)+cell('Weekly gas allowance',cents(f.options.gasWeekly))+'</div>';
  html+='<div class="wk-warning"><strong>Christmas and gas amounts unknown</strong><p>Without estimates, those expenses are <strong>not deducted</strong> from the forecast. Add tentative amounts below, then adjust when you know more. The fields do not change your saved budget.</p></div>';
- html+='<h3>Plan your spending</h3>';
+ html+='<details id="wkPlanDetails" class="wk-plan-details" '+(ui.controlsOpen?'open':'')+'><summary><strong>Christmas, gas & groceries — edit estimates</strong><span>Change amounts whenever you have a clearer picture.</span></summary>';
  html+='<div class="dec-inputs"><label class="field">Christmas spending estimate ($)<input id="decChristmas" type="number" min="0" max="100000" step="25" value="'+f.options.christmas+'" placeholder="TBD"></label><label class="field">Christmas shopping date (estimated)<input id="decChristmasDate" type="date" min="2026-12-01" max="2026-12-31" value="'+esc(f.options.christmasDate)+'"></label><label class="field">Gas allowance each week ($)<input id="decGasWeekly" type="number" min="0" max="10000" step="10" value="'+f.options.gasWeekly+'" placeholder="TBD"></label><label class="field">Grocery allowance each week ($)<input id="decWeekly" type="number" min="0" max="5000" step="5" value="'+f.options.weekly+'"></label><label class="field">Minimum cash cushion ($)<input id="decBuffer" type="number" min="0" max="50000" step="50" value="'+f.options.buffer+'"></label><label class="field">Starting cash before Nov 23 entries ($)<input id="decOpening" type="number" step="0.01" value="'+(f.options.opening===null?Number(state.opening)||0:f.options.opening)+'"></label><label class="field">Other spending through Nov 30 ($)<input id="decNovExtra" type="number" min="0" step="10" value="'+f.options.novExtra+'"></label><label class="field">Other December spending ($)<input id="decDecExtra" type="number" min="0" step="10" value="'+f.options.decExtra+'"></label><label class="field"><span>Other undated bills still unpaid in November?</span><span class="dec-check"><input type="checkbox" id="decNovUndated" '+(f.options.novUndated?'checked':'')+'> Reserve these too</span></label></div>';
- html+='<p class="hint">Planning inputs are temporary until you enter real bills or transactions. The default $100 weekly grocery budget is illustrative. Christmas spending is placed on the estimated shopping date; gas is planned at the start of each week.</p>';
- html+=weeklyBreakdown(f,'forecast');
+ html+='<p class="hint">These estimates apply to this view only and are not saved with your household budget. Christmas and gas stay TBD until you enter an amount. The $100 grocery allowance is only an example.</p></details>';
+ html+=weeklyBreakdown(f,'dashboard');
  const breakdown=(label,obj,grocery)=>'<div class="dec-breakdown"><strong>'+label+'</strong><div>Expected paychecks <b>'+round(obj.income)+'</b></div><div>Bills <b>−'+round(obj.bill)+'</b></div><div>Card minimums <b>−'+round(obj.minimum)+'</b></div><div>Groceries (example) <b>−'+round(grocery)+'</b></div><div>Gas allowance <b>'+(f.options.gasWeekly>0?'−'+round(obj.gas):'TBD')+'</b></div><div>Christmas spending <b>'+(f.options.christmas>0?'−'+round(obj.christmas):'TBD')+'</b></div><div>Other expenses <b>−'+round(obj.other)+'</b></div><div class="dec-total">Net change <b>'+round(obj.income-obj.bill-obj.minimum-grocery-obj.gas-obj.christmas-obj.other)+'</b></div></div>';
- html+='<h3>November-to-December rollover</h3><div class="dec-breakdowns">'+breakdown('Remaining November',s.nov,s.grocNov)+breakdown('December',s.dec,s.grocDec)+'</div>';
+ html+='<details class="wk-month-details"><summary>Show November and December monthly totals</summary><div class="dec-breakdowns">'+breakdown('Remaining November',s.nov,s.grocNov)+breakdown('December',s.dec,s.grocDec)+'</div></details>';
  if(f.warnings.length)html+='<details class="dec-warnings"><summary><strong>Dates and assumptions to verify ('+f.warnings.length+')</strong></summary><ul>'+f.warnings.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></details>';
  html+='<p class="hint">All balances are estimated. Weekly totals include the same scheduled bills and card minimums you entered, plus any what-if allowances above. Undated bills and exact payment timing can change the outcome. Neither this table nor the grocery plan makes payments.</p></section>';
  return html;
@@ -278,13 +278,16 @@ function bind(state){
   ui.gasWeekly=Math.max(0,Math.min(10000,Number(get('decGasWeekly').value)||0));
   ui.christmas=Math.max(0,Math.min(100000,Number(get('decChristmas').value)||0));
   ui.christmasDate=get('decChristmasDate').value;
+  ui.controlsOpen=get('wkPlanDetails').open;
   root.outerHTML=render(state);bind(state);
  };
  for(const id of ['decOpening','decWeekly','decBuffer','decNovExtra','decDecExtra','decNovUndated','decGasWeekly','decChristmas','decChristmasDate'])root.querySelector('#'+id).addEventListener('change',onChange);
+ const settings=root.querySelector('#wkPlanDetails');
+ settings.addEventListener('toggle',()=>{ui.controlsOpen=settings.open});
+ root.querySelector('#wkChangePlan')?.addEventListener('click',()=>{settings.open=true;ui.controlsOpen=true;settings.scrollIntoView({behavior:'smooth',block:'start'});});
 }
 function dashboard(state){
- const f=makeForecast(state),s=f.summary;
- return '<section class="wk-dashboard"><div class="dec-dashboard"><div><small>Weekly cash plan · Nov 23 – Dec 31, 2026</small><strong>'+money(s.decClose)+' <span>estimated Dec 31 cash</span></strong><small>November 30 carryover: '+money(s.novClose)+' · Christmas and gas TBD / not yet deducted</small></div><button type="button" data-tab="Nov–Dec Forecast">Set Christmas & gas estimates</button></div>'+weeklyBreakdown(f,'dashboard')+'</section>';
+ return render(state);
 }
 window.DecemberForecast={forecast:makeForecast,render,bind,dashboard,datesFor};
 })();
