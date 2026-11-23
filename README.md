@@ -1,19 +1,22 @@
-# Household Budget — Render static hosting edition
+# Household Budget — Private Household App
 
-This is a **free static website** based on the v0.13 budgeting app. It does not have accounts, cloud storage, server-side authentication, or cross-device synchronization. Data lives exclusively in your browser's localStorage.
+Live site: https://household-budget-web-vvza.onrender.com
 
-## Publish on Render
+## Privacy and architecture
+- Render hosts a public login page. The budgeting dashboard and records are not accessible until a user signs in and belongs to the household.
+- Supabase Auth manages email/password authentication, and Supabase PostgreSQL stores household budgets privately.
+- Database row-level security (RLS) restricts budget reads to household members. Write actions use signed-in, membership-checked database procedures.
+- Only a public Supabase **publishable** API key is included in the website. Never add server or secret keys, passwords, account numbers, or financial data to GitHub.
+- Historical October card balances and bill allocations were stored in a private database seed and become available after the authorized owner creates their household.
+- Household owners can issue one-time, seven-day invitation codes for members.
+- The frontend currently uses a bundled single HTML file because the Render static-site build publishes only `index.html`.
 
-1. Create a GitHub repository and add **only** `index.html` and `render.yaml` from this folder (plus this README if desired). Do NOT publish `Bills.xlsx`, `seed.json`, an exported budget backup, or other private financial data.
-2. In Render, select **New > Static Site**, connect your GitHub repository.
-3. Use **Build Command:** `mkdir -p public && cp index.html public/index.html`.
-4. Use **Publish Directory:** `public`.
-5. Create the Static Site. Render assigns an HTTPS `*.onrender.com` URL. Alternatively use the provided `render.yaml` with a Render Blueprint.
+## First sign-in
+An administrator must visit the Supabase project's **Authentication → URL Configuration** page and set the Site URL to `https://household-budget-web-vvza.onrender.com` and allow the same URL as an additional redirect URL before signing up. Verify the confirmation email, sign in, then choose **Create my household**.
 
-## Bring your October 26 financial records onto the hosted site
-
-1. Open your previous local v0.13 HTML website. Select **Export backup** and save the JSON file privately on your computer. This exports the historical Oct 26 seed values and any edits saved in that particular browser origin.
-2. On the HTTPS Render site **in the SAME browser/device where you want to work**, select **Import backup**, choose the JSON file, and confirm.
-3. Your data is stored on that browser/device, not on Render. Repeat the import on another browser if you want a second independent copy. The copies will **not** stay in sync.
-
-**Privacy:** Never put financial backups into a public Git repository. The published HTML intentionally contains no original account balances or October 26 records. This free static version has no login and should not be considered a secure shared financial application. Keep backups private and do not enter bank passwords or full account/card numbers. Use a protected, persistent database and authentication for a future shared-account version.
+## Limits
+- Do not enter bank passwords or complete payment-card numbers.
+- This site does not connect to banks or move money.
+- The values imported from the October worksheet are historical, not verified current balances.
+- Export private backups occasionally.
+- Supabase free project and Render free hosting have plan limits; verify provider pricing before upgrading.
