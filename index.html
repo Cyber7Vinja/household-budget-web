@@ -680,7 +680,7 @@ const localToday=()=>{const d=new Date();return [d.getFullYear(),String(d.getMon
 const labelLong=d=>valid(d)?new Date(asDate(d)).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric',timeZone:'UTC'}):'Unknown date';
 const copy=o=>JSON.parse(JSON.stringify(o));
 const groups=['paychecks','bills','debts','transactions','extras'];
-let snapshot=null,starting=null,mode=1,notice='',dirty=false,openNames=new Set();
+let snapshot=null,sourceBaseline=null,sourceFingerprint=null,starting=null,mode=1,notice='',dirty=false,openNames=new Set();
 let options={};
 const defaultOptions=(state)=>{
  const now=localToday(),year=Number(now.slice(0,4));
@@ -688,18 +688,58 @@ const defaultOptions=(state)=>{
  return {cash:Number(state.opening)||0,grocery:100,gas:0,christmas:0,christmasDate:upcomingChristmas+'-12-20',cushion:500};
 };
 function reset(state){
+ sourceBaseline=copy(state);
+ sourceFingerprint=JSON.stringify(state);
  snapshot=copy(state);
  for(const name of groups)if(!Array.isArray(snapshot[name]))snapshot[name]=[];
  snapshot.whatIf=[];
  options=defaultOptions(state);starting=localToday();mode=1;dirty=false;
- notice='Reset from the current saved household budget. All edits on this tab are separate.';
+ notice='Reset to the latest household budget. Forecast-only changes were cleared; no main-tab data was changed.';
  openNames=new Set();
 }
-function clear(){snapshot=null;starting=null;notice='';dirty=false;openNames.clear()}
+function clear(){snapshot=null;sourceBaseline=null;sourceFingerprint=null;starting=null;notice='';dirty=false;openNames.clear()}
 function generateThreeMonths(){
  mode=3;notice='Generated three future calendar months in this forecast only. Original Paychecks and Bills were not changed.';
 }
-function ensure(state){if(!snapshot)reset(state);}
+// Bring newly saved income, bills, cards, and transactions into the forecast without
+// replacing unrelated scenario changes. Each scenario field override wins over the
+// corresponding live field; entries deleted only in the scenario stay hidden.
+function mergeSandbox(draft,previous,live){
+ const merged=copy(live);
+ for(const group of groups){
+  const oldRows=Array.isArray(previous?.[group])?previous[group]:[];
+  const draftRows=Array.isArray(draft?.[group])?draft[group]:[];
+  const priorById=new Map(oldRows.filter(row=>row&&row.id!=null).map(row=>[String(row.id),row]));
+  const scenarioById=new Map(draftRows.filter(row=>row&&row.id!=null).map(row=>[String(row.id),row]));
+  const removed=new Set(oldRows.filter(row=>row&&row.id!=null&&!scenarioById.has(String(row.id))).map(row=>String(row.id)));
+  const fresh=Array.isArray(merged[group])?merged[group]:[];
+  merged[group]=fresh.filter(row=>!removed.has(String(row?.id))).map(row=>{
+   const old=priorById.get(String(row?.id));
+   const edited=scenarioById.get(String(row?.id));
+   if(!old||!edited)return row;
+   for(const key of Object.keys(edited)){
+    if(key==='id')continue;
+    // Only fields changed in Forecast take precedence over future live changes.
+    if(JSON.stringify(edited[key])!==JSON.stringify(old[key]))row[key]=copy(edited[key]);
+   }
+   return row;
+  });
+ }
+ merged.whatIf=copy(Array.isArray(draft?.whatIf)?draft.whatIf:[]);
+ return merged;
+}
+function ensure(state){
+ if(!snapshot){reset(state);return;}
+ const currentFingerprint=JSON.stringify(state);
+ if(currentFingerprint===sourceFingerprint)return;
+ const previousBaseline=sourceBaseline;
+ const wasCashEdited=cents(options.cash)!==cents(previousBaseline?.opening);
+ snapshot=mergeSandbox(snapshot,previousBaseline,state);
+ sourceBaseline=copy(state);
+ sourceFingerprint=currentFingerprint;
+ if(!wasCashEdited)options.cash=Number(state.opening)||0;
+ notice='Updated from the latest household budget. Forecast-only changes are preserved; your original tabs were not edited.';
+}
 function endDate(start,months){const [y,m]=start.split('-').map(Number),d=new Date(Date.UTC(y,m-1+months+1,0));return iso(d.getTime());}
 function occurrences(base,from,to){
  const d=base.date,f=base.frequency||'One-time';
@@ -866,8 +906,8 @@ function render(state){
  ensure(state);
  const plan=model(),detailsName='forecastSources',extraName='forecastAdd',warningsName='forecastWarnings';
  let html='<section id="forecastStudio" class="fs-wrap">';
- html+='<div class="fs-notice"><strong><span aria-hidden="true">🧪</span> Forecast sandbox — independent from your household budget</strong><p>This tab starts as a copy of Paychecks, Bills, Debt & Credit and Transactions. Edit anything here without changing those tabs. Nothing here is saved to your shared database.</p></div>';
- html+='<div class="fs-toolbar"><button type="button" id="fsGenerate" class="primary">'+(mode===3?'Showing generated 3-month forecast':'Generate next 3 months')+'</button><button type="button" id="fsReset">Reload original budget</button><span class="hint">'+(mode===3?'Full next 3 calendar months':'Current and next month')+' · '+esc(labelLong(plan.from))+' – '+esc(labelLong(plan.to))+'</span></div>';
+ html+='<div class="fs-notice"><strong><span aria-hidden="true">🧪</span> Forecast sandbox — independent from your household budget</strong><p>This tab automatically picks up changes from Paychecks, Bills, Debt & Credit and Transactions when you return here. Any changes you make in Forecast are kept separate and never saved back to those tabs.</p></div>';
+ html+='<div class="fs-toolbar"><button type="button" id="fsGenerate" class="primary">'+(mode===3?'Showing generated 3-month forecast':'Generate next 3 months')+'</button><button type="button" id="fsReset">Reset to latest budget</button><span class="hint">'+(mode===3?'Full next 3 calendar months':'Current and next month')+' · '+esc(labelLong(plan.from))+' – '+esc(labelLong(plan.to))+'</span></div>';
  if(notice)html+='<div class="fs-status" role="status">'+esc(notice)+'</div>';
  html+='<div class="fs-stats">'+[['Starting cash',plan.opening],['Projected income',plan.totalIncome],['Projected expenses',plan.totalOut],['Estimated ending cash',plan.ending]].map(([t,v])=>'<div class="fs-stat"><small>'+esc(t)+'</small><strong class="'+(v<0?'fs-danger':'')+'">'+fmtCash(v/100)+'</strong></div>').join('')+'</div>';
  html+='<details id="fsSpend" class="fs-details"'+(openNames.has('fsSpend')?' open':'')+'><summary>Christmas, gas and grocery planning</summary><div class="fs-inputs">';
@@ -942,7 +982,7 @@ function bind(state,refresh){
   dirty=true;notice='Added only to this forecast scenario.';rerender();
  });
 }
-window.ForecastStudio={reset,clear,ensure,render,bind,model,generateThreeMonths,dates:occurrences};
+window.ForecastStudio={reset,clear,ensure,mergeSandbox,render,bind,model,generateThreeMonths,dates:occurrences};
 })();
 </script><script>
 (()=>{'use strict';
