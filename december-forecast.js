@@ -13,7 +13,7 @@ const fmt=s=>new Date(time(s)).toLocaleDateString('en-US',{month:'short',day:'nu
 const monthEnd=(year,month)=>new Date(Date.UTC(year,month,0)).getUTCDate();
 const dayAt=(year,month,day)=>year+'-'+String(month).padStart(2,'0')+'-'+String(Math.min(monthEnd(year,month),day)).padStart(2,'0');
 const between=d=>d>=START&&d<=END;
-const ui={opening:null,weekly:100,buffer:500,novExtra:0,decExtra:0,novUndated:false,deferHouse:true};
+const ui={opening:null,weekly:100,buffer:500,novExtra:0,decExtra:0,novUndated:false,deferHouse:true,gasWeekly:0,christmas:0,christmasDate:'2026-12-20'};
 function datesFor(item){
  if(!dateOK(item.date))return [];
  const anchor=item.date,frequency=item.frequency||'One-time',out=[];
@@ -41,7 +41,7 @@ function datedEntries(entries,kind,warn,opt){
  for(const base of parents){
   if(kind==='bill'&&base.budgetOnly)continue;
   // A household may defer the undated House bill through December without editing its saved bill.
-  if(kind==='bill'&&opt.deferHouse&&String(base.name||'').trim().toLowerCase()==='house'&&base.frequency==='Monthly')continue;
+  if(kind==='bill'&&String(base.name||'').trim().toLowerCase()==='house'&&base.frequency==='Monthly')continue;
   if(!cents(base.amount))continue;
   if(!dateOK(base.date)){
    const isRecurring=base.frequency&&base.frequency!=='One-time';
@@ -61,7 +61,7 @@ function datedEntries(entries,kind,warn,opt){
  for(const ch of children){
   if(kind==='bill'&&ch.budgetOnly)continue;
   const owningBill=parents.find(x=>x.id===ch.parent);
-  if(kind==='bill'&&opt.deferHouse&&owningBill&&String(owningBill.name||'').trim().toLowerCase()==='house'&&owningBill.frequency==='Monthly')continue;
+  if(kind==='bill'&&owningBill&&String(owningBill.name||'').trim().toLowerCase()==='house'&&owningBill.frequency==='Monthly')continue;
   if(!dateOK(ch.date)||!between(ch.date))continue;
   const parent=parents.find(x=>x.id===ch.parent);
   if(parent&&datesFor(parent).includes(ch.date))continue;
@@ -111,11 +111,18 @@ function makeForecast(state,options={}){
  const reserve=(date,amount,label)=>{const v=cents(amount);if(v)events.push({date,kind:'reserve',title:label,amount:-v});};
  reserve('2026-11-30',opt.novExtra,'Other November spending (what-if)');
  reserve(END,opt.decExtra,'Other December spending (what-if)');
+ // Unknown holiday and fuel spending are explicit, editable what-if inputs (zero is not treated as a known actual).
+ const christmasCost=cents(opt.christmas),gasCost=cents(opt.gasWeekly);
+ const christmasDate=dateOK(opt.christmasDate)&&between(opt.christmasDate)&&opt.christmasDate.slice(0,7)==='2026-12'?opt.christmasDate:'2026-12-20';
+ if(christmasCost)events.push({date:christmasDate,kind:'christmas',title:'Christmas spending (what-if)',amount:-christmasCost});
+ if(gasCost)for(const week of weeks())events.push({date:week.start,kind:'gas',title:'Gas allowance (what-if)',amount:-gasCost});
  const grossTotals=month=>({
   income:events.filter(e=>e.date.startsWith(month)&&e.kind==='income').reduce((s,e)=>s+e.amount,0),
   bill:events.filter(e=>e.date.startsWith(month)&&['bill','undated'].includes(e.kind)).reduce((s,e)=>s-e.amount,0),
   minimum:events.filter(e=>e.date.startsWith(month)&&e.kind.startsWith('minimum')).reduce((s,e)=>s-e.amount,0),
-  other:events.filter(e=>e.date.startsWith(month)&&['extra','transaction','reserve'].includes(e.kind)).reduce((s,e)=>s-e.amount,0)
+  other:events.filter(e=>e.date.startsWith(month)&&['extra','transaction','reserve'].includes(e.kind)).reduce((s,e)=>s-e.amount,0),
+  gas:events.filter(e=>e.date.startsWith(month)&&e.kind==='gas').reduce((s,e)=>s-e.amount,0),
+  christmas:events.filter(e=>e.date.startsWith(month)&&e.kind==='christmas').reduce((s,e)=>s-e.amount,0)
  });
  const calcBase={nov:grossTotals('2026-11'),dec:grossTotals('2026-12')};
  const scenario=weeks(),baseDays=[],byDate=new Map();
@@ -163,22 +170,38 @@ function makeForecast(state,options={}){
   w.low=Math.min(openingBalance,...observations.map(d=>d.balance));
   w.high=Math.max(openingBalance,...observations.map(d=>d.balance));
   w.income=detail.filter(e=>e.kind==='income'&&e.date>=w.start&&e.date<=w.end).reduce((s,e)=>s+e.amount,0);
-  w.bills=-detail.filter(e=>e.amount<0&&e.kind!=='grocery'&&e.date>=w.start&&e.date<=w.end).reduce((s,e)=>s+e.amount,0);
+  const weekEntries=detail.filter(e=>e.date>=w.start&&e.date<=w.end);
+  const by=k=>-weekEntries.filter(e=>e.kind===k).reduce((sum,e)=>sum+Math.min(0,e.amount),0);
+  w.open=openingBalance;
+  w.categories={
+   bills:by('bill')+by('undated'),
+   cards:by('minimum')+by('minimum-estimated'),
+   groceries:by('grocery'),
+   gas:by('gas'),
+   christmas:by('christmas'),
+   other:by('reserve')+by('extra')+by('transaction')
+  };
+  w.out=Object.values(w.categories).reduce((sum,v)=>sum+v,0);
+  w.bills=w.out-w.categories.groceries;
+  w.events=weekEntries;
+  if(w.open+w.income-w.out!==w.close)warn.push('Week of '+w.start+' does not reconcile; please verify the forecast.');
  }
  const grocNov=-groceryEvents.filter(e=>e.date.startsWith('2026-11')).reduce((s,e)=>s+e.amount,0);
  const grocDec=-groceryEvents.filter(e=>e.date.startsWith('2026-12')).reduce((s,e)=>s+e.amount,0);
  const novClose=dmap.get('2026-11-30'),decClose=dmap.get(END);
- const excludingGroceries={nov:calcBase.nov.income-calcBase.nov.bill-calcBase.nov.minimum-calcBase.nov.other,dec:calcBase.dec.income-calcBase.dec.bill-calcBase.dec.minimum-calcBase.dec.other};
+ const excludingGroceries={nov:calcBase.nov.income-calcBase.nov.bill-calcBase.nov.minimum-calcBase.nov.other-calcBase.nov.gas-calcBase.nov.christmas,dec:calcBase.dec.income-calcBase.dec.bill-calcBase.dec.minimum-calcBase.dec.other-calcBase.dec.gas-calcBase.dec.christmas};
  const observed=days.map(d=>({date:d.date,value:d.balance}));
  const high=observed.reduce((a,b)=>b.value>a.value?b:a);
  const low=observed.reduce((a,b)=>b.value<a.value?b:a);
+ if(!cents(opt.christmas))warn.push('Christmas spending is TBD and is not deducted yet.');
+ if(!cents(opt.gasWeekly))warn.push('Gas spending is TBD and is not deducted yet.');
  const negatives=days.filter(d=>d.balance<0);
  if(negatives.length)warn.push('One or more projected days fall below $0. A positive month-end amount does not guarantee bills can be covered on time.');
  if(opt.weekly===100)warn.push('The $100 weekly grocery figure is an example, not a recorded expense. Change it to your actual plan.');
- if(opt.deferHouse && (state.bills||[]).some(b=>!b.parent&&String(b.name||'').trim().toLowerCase()==='house'&&b.frequency==='Monthly'))warn.push('The House bill is excluded from the November–December scenario because it is not needed until January. It remains unchanged in the saved Bills tab.');
+ if((state.bills||[]).some(b=>!b.parent&&String(b.name||'').trim().toLowerCase()==='house'))warn.push('The House bill is intentionally excluded from this cash forecast and remains unchanged in Bills.');
  if(!opt.novUndated)warn.push('Other undated recurring bills are NOT charged in November. Enable the November reserve if they are still owed.');
  warn.push('Starting cash is not date-stamped in your budget. Confirm the amount available BEFORE November 23 paychecks and payments to prevent double-counting.');
- const summary={opening,nov:calcBase.nov,dec:calcBase.dec,novClose,decClose,grocNov,grocDec,excludingGroceries,high,low,negativeDays:negatives.length};
+ const summary={opening,nov:calcBase.nov,dec:calcBase.dec,novClose,decClose,grocNov,grocDec,excludingGroceries,high,low,negativeDays:negatives.length,gasCost,christmasCost};
  return {summary,days,weeks:scenario,events:detail,warnings:[...new Set(warn)],options:opt};
 }
 function plot(f){
