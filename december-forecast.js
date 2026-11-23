@@ -238,7 +238,7 @@ function bind(state){
 }
 function dashboard(state){
  const s=makeForecast(state).summary;
- return '<div class="dec-dashboard"><div><small>November → December 2026 cash forecast (with example grocery trips)</small><strong>'+money(s.decClose)+' <span>projected Dec 31 cash</span></strong><small>Estimated November 30 carryover: '+money(s.novClose)+' · Check starting cash and missing due dates</small></div><button type="button" data-tab="December Forecast">View weekly cash forecast</button></div>';
+ return '<div class="dec-dashboard"><div><small>November → December 2026 cash forecast (with example grocery trips)</small><strong>'+money(s.decClose)+' <span>projected Dec 31 cash</span></strong><small>Estimated November 30 carryover: '+money(s.novClose)+' · Check starting cash and missing due dates</small></div><button type="button" data-tab="Nov–Dec Forecast">View weekly cash forecast</button></div>';
 }
 window.DecemberForecast={forecast:makeForecast,render,bind,dashboard,datesFor};
 })();
