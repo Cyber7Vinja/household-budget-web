@@ -95,7 +95,11 @@ function makeForecast(state,options={}){
    dates=[END];
    warn.push(label+' is missing its due date; the minimum is reserved on December 31.');
   }
-  for(const day of dates)events.push({date:day,kind:dateOK(d.due)?'minimum':'minimum-estimated',title:label+' minimum',amount:-cents(d.minimum),source:d.id});
+  for(const day of dates){
+   const isCard=String(d.type||'').trim().toLowerCase()==='credit card';
+   const kind=(isCard?'minimum':'minimum-other')+(dateOK(d.due)?'':'-estimated');
+   events.push({date:day,kind,title:label+' minimum',amount:-cents(d.minimum),source:d.id});
+  }
  }
  const assigned=new Set([...(state.bills||[]),...(state.debts||[]),...(state.extras||[])].map(x=>x.id).filter(Boolean));
  for(const x of state.extras||[]){
@@ -121,6 +125,8 @@ function makeForecast(state,options={}){
   income:events.filter(e=>e.date.startsWith(month)&&e.kind==='income').reduce((s,e)=>s+e.amount,0),
   bill:events.filter(e=>e.date.startsWith(month)&&['bill','undated'].includes(e.kind)).reduce((s,e)=>s-e.amount,0),
   minimum:events.filter(e=>e.date.startsWith(month)&&e.kind.startsWith('minimum')).reduce((s,e)=>s-e.amount,0),
+  cardMinimum:events.filter(e=>e.date.startsWith(month)&&['minimum','minimum-estimated'].includes(e.kind)).reduce((s,e)=>s-e.amount,0),
+  otherDebtMinimum:events.filter(e=>e.date.startsWith(month)&&['minimum-other','minimum-other-estimated'].includes(e.kind)).reduce((s,e)=>s-e.amount,0),
   other:events.filter(e=>e.date.startsWith(month)&&['extra','transaction','reserve'].includes(e.kind)).reduce((s,e)=>s-e.amount,0),
   gas:events.filter(e=>e.date.startsWith(month)&&e.kind==='gas').reduce((s,e)=>s-e.amount,0),
   christmas:events.filter(e=>e.date.startsWith(month)&&e.kind==='christmas').reduce((s,e)=>s-e.amount,0)
@@ -177,6 +183,7 @@ function makeForecast(state,options={}){
   w.categories={
    bills:by('bill')+by('undated'),
    cards:by('minimum')+by('minimum-estimated'),
+   otherDebt:by('minimum-other')+by('minimum-other-estimated'),
    groceries:by('grocery'),
    gas:by('gas'),
    christmas:by('christmas'),
@@ -199,9 +206,11 @@ function makeForecast(state,options={}){
  const negatives=days.filter(d=>d.balance<0);
  if(negatives.length)warn.push('One or more projected days fall below $0. A positive month-end amount does not guarantee bills can be covered on time.');
  if(opt.weekly===100)warn.push('The $100 weekly grocery figure is an example, not a recorded expense. Change it to your actual plan.');
- if((state.bills||[]).some(b=>!b.parent&&String(b.name||'').trim().toLowerCase()==='house'))warn.push('The House bill is intentionally excluded from this cash forecast and remains unchanged in Bills.');
+ if((state.bills||[]).some(b=>!b.parent&&String(b.name||'').trim().toLowerCase()==='house'&&cents(b.amount)>0))warn.push('The House bill is intentionally excluded from this cash forecast and remains unchanged in Bills.');
  if(!opt.novUndated&&(state.bills||[]).some(b=>!b.parent&&b.frequency&&b.frequency!=='One-time'&&!dateOK(b.date)&&String(b.name||'').trim().toLowerCase()!=='house'))warn.push('Other undated recurring bills are NOT charged in November. Enable the November reserve if they are still owed.');
  warn.push('Starting cash is not date-stamped in your budget. Confirm the amount available BEFORE November 23 paychecks and payments to prevent double-counting.');
+ if((state.debts||[]).some(d=>Number(d.balance)>0&&Number(d.minimum)>0&&String(d.type||'').trim().toLowerCase()!=='credit card'))warn.push('Payments on accounts categorized Other are included under Other debts in this Dashboard. Debt Payoff models only accounts marked Credit Card.');
+ if((state.transactions||[]).some(t=>dateOK(t.date)&&between(t.date)&&!t.source&&['expense','debt'].includes(t.kind)&&/\b(cc|credit.?card|card)\b/i.test(String(t.name||''))))warn.push('A separately entered card payment appears under Transactions. Check that it is not already covered by a scheduled card minimum to avoid counting one payment twice.');
  const summary={opening,nov:calcBase.nov,dec:calcBase.dec,novClose,decClose,grocNov,grocDec,excludingGroceries,high,low,negativeDays:negatives.length,gasCost,christmasCost};
  return {summary,days,weeks:scenario,events:detail,warnings:[...new Set(warn)],options:opt};
 }
@@ -239,7 +248,7 @@ function weeklyBreakdown(f,context){
   const mode=w.mode==='Light'?'dec-light':w.mode==='Stock-up'?'dec-heavy':'dec-regular';
   html+='<article class="wk-card'+(w.close<0||w.low<0?' wk-risk':'')+'"><div class="wk-top"><div><strong class="wk-dates">'+esc(startLabel)+' – '+esc(endLabel)+'</strong><small>Week ending '+esc(endLabel)+'</small></div><span class="dec-grocery '+mode+'">'+esc(w.mode)+' groceries</span></div>';
   html+='<div class="wk-figures"><div><small>Starting</small><b>'+money(w.open)+'</b></div><div class="wk-in"><small>Money in</small><b>+'+money(w.income)+'</b></div><div class="wk-out"><small>Money out</small><b>−'+money(w.out)+'</b></div><div class="wk-ending"><small>Ending cash</small><b>'+money(w.close)+'</b></div></div>';
-  html+='<div class="wk-categories"><span>Bills <b>'+money(c.bills)+'</b></span><span>Cards <b>'+money(c.cards)+'</b></span><span>Groceries <b>'+money(c.groceries)+'</b></span><span>Gas '+(f.options.gasWeekly>0?'<b>'+money(c.gas)+'</b>':TBD)+'</span><span>Christmas '+(f.options.christmas>0?'<b>'+money(c.christmas)+'</b>':TBD)+'</span><span>Other <b>'+money(c.other)+'</b></span></div>';
+  html+='<div class="wk-categories"><span>Bills <b>'+money(c.bills)+'</b></span><span>Credit cards <b>'+money(c.cards)+'</b></span><span>Other debts <b>'+money(c.otherDebt)+'</b></span><span>Groceries <b>'+money(c.groceries)+'</b></span><span>Gas '+(f.options.gasWeekly>0?'<b>'+money(c.gas)+'</b>':TBD)+'</span><span>Christmas '+(f.options.christmas>0?'<b>'+money(c.christmas)+'</b>':TBD)+'</span><span>Other <b>'+money(c.other)+'</b></span></div>';
   html+='<div class="wk-bottom"><span>Net this week <b class="'+(sign<0?'dec-red':'dec-green')+'">'+(sign<0?'−':'+')+money(Math.abs(sign))+'</b></span><span>Lowest cash <b class="'+(w.low<0?'dec-red':'')+'">'+money(w.low)+'</b></span></div>';
   html+='<details class="wk-detail"><summary>See individual payments and paychecks ('+details.length+')</summary>';
   if(details.length){
@@ -260,7 +269,7 @@ function render(state){
  html+='<div class="dec-inputs"><label class="field">Christmas spending estimate ($)<input id="decChristmas" type="number" min="0" max="100000" step="25" value="'+f.options.christmas+'" placeholder="TBD"></label><label class="field">Christmas shopping date (estimated)<input id="decChristmasDate" type="date" min="2026-12-01" max="2026-12-31" value="'+esc(f.options.christmasDate)+'"></label><label class="field">Gas allowance each week ($)<input id="decGasWeekly" type="number" min="0" max="10000" step="10" value="'+f.options.gasWeekly+'" placeholder="TBD"></label><label class="field">Weekly groceries ($) · saves automatically<input id="decWeekly" type="number" min="0" max="5000" step="5" value="'+f.options.weekly+'"></label><label class="field">Minimum cash cushion ($)<input id="decBuffer" type="number" min="0" max="50000" step="50" value="'+f.options.buffer+'"></label><label class="field">Starting cash before Nov 23 entries ($)<input id="decOpening" type="number" step="0.01" value="'+(f.options.opening===null?Number(state.opening)||0:f.options.opening)+'"></label><label class="field">Other spending through Nov 30 ($)<input id="decNovExtra" type="number" min="0" step="10" value="'+f.options.novExtra+'"></label><label class="field">Other December spending ($)<input id="decDecExtra" type="number" min="0" step="10" value="'+f.options.decExtra+'"></label><label class="field"><span>Other undated bills still unpaid in November?</span><span class="dec-check"><input type="checkbox" id="decNovUndated" '+(f.options.novUndated?'checked':'')+'> Reserve these too</span></label></div>';
  html+='<p class="hint">Changes to weekly groceries save to your shared household budget automatically. Other fields here are temporary planning estimates. Christmas and gas remain TBD until you enter an amount; groceries are estimated, not recorded purchases.</p></details>';
  html+=weeklyBreakdown(f,'dashboard');
- const breakdown=(label,obj,grocery)=>'<div class="dec-breakdown"><strong>'+label+'</strong><div>Expected paychecks <b>'+round(obj.income)+'</b></div><div>Bills <b>−'+round(obj.bill)+'</b></div><div>Card minimums <b>−'+round(obj.minimum)+'</b></div><div>Groceries (example) <b>−'+round(grocery)+'</b></div><div>Gas allowance <b>'+(f.options.gasWeekly>0?'−'+round(obj.gas):'TBD')+'</b></div><div>Christmas spending <b>'+(f.options.christmas>0?'−'+round(obj.christmas):'TBD')+'</b></div><div>Other expenses <b>−'+round(obj.other)+'</b></div><div class="dec-total">Net change <b>'+round(obj.income-obj.bill-obj.minimum-grocery-obj.gas-obj.christmas-obj.other)+'</b></div></div>';
+ const breakdown=(label,obj,grocery)=>'<div class="dec-breakdown"><strong>'+label+'</strong><div>Expected paychecks <b>'+round(obj.income)+'</b></div><div>Bills <b>−'+round(obj.bill)+'</b></div><div>Credit-card minimums <b>−'+round(obj.cardMinimum)+'</b></div><div>Other debt minimums <b>−'+round(obj.otherDebtMinimum)+'</b></div><div>Groceries (example) <b>−'+round(grocery)+'</b></div><div>Gas allowance <b>'+(f.options.gasWeekly>0?'−'+round(obj.gas):'TBD')+'</b></div><div>Christmas spending <b>'+(f.options.christmas>0?'−'+round(obj.christmas):'TBD')+'</b></div><div>Other expenses <b>−'+round(obj.other)+'</b></div><div class="dec-total">Net change <b>'+round(obj.income-obj.bill-obj.minimum-grocery-obj.gas-obj.christmas-obj.other)+'</b></div></div>';
  html+='<details class="wk-month-details"><summary>Show November and December monthly totals</summary><div class="dec-breakdowns">'+breakdown('Remaining November',s.nov,s.grocNov)+breakdown('December',s.dec,s.grocDec)+'</div></details>';
  if(f.warnings.length)html+='<details class="dec-warnings"><summary><strong>Dates and assumptions to verify ('+f.warnings.length+')</strong></summary><ul>'+f.warnings.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></details>';
  html+='<p class="hint">All balances are estimated. Weekly totals include the same scheduled bills and card minimums you entered, plus any what-if allowances above. Undated bills and exact payment timing can change the outcome. Neither this table nor the grocery plan makes payments.</p></section>';
