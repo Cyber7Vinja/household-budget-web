@@ -22,11 +22,15 @@ function datesFor(item){
   const step=(frequency==='Weekly'?7:14)*DAY;
   const first=Math.max(0,Math.ceil((time(START)-time(anchor))/step));
   for(let n=first;n<first+8;n++){const d=iso(time(anchor)+n*step);if(d>END)break;if(between(d))out.push(d);}
- }else if(frequency==='Monthly'||frequency==='Twice monthly'){
+ }else if(frequency==='Monthly'||frequency==='Twice monthly'||frequency==='Every 3 months'){
   const [y,m,day]=anchor.split('-').map(Number);
   for(const [yr,mo] of [[2026,11],[2026,12]]){
    if((yr-y)*12+mo-m<0)continue;
-   if(frequency==='Monthly'){const date=dayAt(yr,mo,day);if(date>=anchor&&between(date))out.push(date);}
+   if(frequency==='Monthly'||frequency==='Every 3 months'){
+    const monthsFromAnchor=(yr-y)*12+mo-m;
+    if(frequency==='Every 3 months'&&monthsFromAnchor%3!==0)continue;
+    const date=dayAt(yr,mo,day);if(date>=anchor&&between(date))out.push(date);
+   }
    else{
     const first=day<=15?day:Math.max(1,day-15),second=Math.min(28,first+15);
     for(const d of [dayAt(yr,mo,first),dayAt(yr,mo,second)])if(d>=anchor&&between(d)&&!out.includes(d))out.push(d);
@@ -45,7 +49,9 @@ function datedEntries(entries,kind,warn,opt){
   if(!cents(base.amount))continue;
   if(!dateOK(base.date)){
    const isRecurring=base.frequency&&base.frequency!=='One-time';
-   if(kind==='bill'&&isRecurring){
+   if(kind==='bill'&&isRecurring&&base.frequency==='Every 3 months'){
+    warn.push(String(base.name||'Quarterly bill')+' is due every 3 months but has no dated first payment. It is excluded until its next due date is entered.');
+   }else if(kind==='bill'&&isRecurring){
     warn.push(String(base.name||'Bill')+' has no due date. December is reserved at month-end; check whether it is also still owed in November.');
     include(base,END,base);
     result[result.length-1].kind='undated';
