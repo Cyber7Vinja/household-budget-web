@@ -245,7 +245,7 @@ function cards(state){
  }));
 }
 function monthlyBills(state){
- const factors={'Weekly':52/12,'Biweekly':26/12,'Twice monthly':2,'Monthly':1};
+ const factors={'Weekly':52/12,'Biweekly':26/12,'Twice monthly':2,'Monthly':1,'Every 3 months':1/3};
  return (state.bills||[]).reduce((s,b)=>s+(!b.parent&&!b.budgetOnly?Math.max(0,Number(b.amount)||0)*(factors[b.frequency]||0):0),0);
 }
 function recurringIncome(state){
@@ -421,11 +421,15 @@ function datesFor(item){
   const step=(frequency==='Weekly'?7:14)*DAY;
   const first=Math.max(0,Math.ceil((time(START)-time(anchor))/step));
   for(let n=first;n<first+8;n++){const d=iso(time(anchor)+n*step);if(d>END)break;if(between(d))out.push(d);}
- }else if(frequency==='Monthly'||frequency==='Twice monthly'){
+ }else if(frequency==='Monthly'||frequency==='Twice monthly'||frequency==='Every 3 months'){
   const [y,m,day]=anchor.split('-').map(Number);
   for(const [yr,mo] of [[2026,11],[2026,12]]){
    if((yr-y)*12+mo-m<0)continue;
-   if(frequency==='Monthly'){const date=dayAt(yr,mo,day);if(date>=anchor&&between(date))out.push(date);}
+   if(frequency==='Monthly'||frequency==='Every 3 months'){
+    const monthsFromAnchor=(yr-y)*12+mo-m;
+    if(frequency==='Every 3 months'&&monthsFromAnchor%3!==0)continue;
+    const date=dayAt(yr,mo,day);if(date>=anchor&&between(date))out.push(date);
+   }
    else{
     const first=day<=15?day:Math.max(1,day-15),second=Math.min(28,first+15);
     for(const d of [dayAt(yr,mo,first),dayAt(yr,mo,second)])if(d>=anchor&&between(d)&&!out.includes(d))out.push(d);
@@ -444,7 +448,9 @@ function datedEntries(entries,kind,warn,opt){
   if(!cents(base.amount))continue;
   if(!dateOK(base.date)){
    const isRecurring=base.frequency&&base.frequency!=='One-time';
-   if(kind==='bill'&&isRecurring){
+   if(kind==='bill'&&isRecurring&&base.frequency==='Every 3 months'){
+    warn.push(String(base.name||'Quarterly bill')+' is due every 3 months but has no dated first payment. It is excluded until its next due date is entered.');
+   }else if(kind==='bill'&&isRecurring){
     warn.push(String(base.name||'Bill')+' has no due date. December is reserved at month-end; check whether it is also still owed in November.');
     include(base,END,base);
     result[result.length-1].kind='undated';
@@ -800,14 +806,15 @@ function occurrences(base,from,to){
  if(f==='Weekly'||f==='Biweekly'){
   const step=(f==='Weekly'?7:14)*dayMs,first=Math.max(0,Math.ceil((asDate(from)-asDate(d))/step));
   for(let n=first;n<first+100;n++){const date=iso(asDate(d)+n*step);if(date>to)break;result.push(date);}
- }else if(f==='Monthly'||f==='Twice monthly'){
+ }else if(f==='Monthly'||f==='Twice monthly'||f==='Every 3 months'){
   const [year,mo,day]=d.split('-').map(Number);
   const [sy,sm]=from.split('-').map(Number),[ey,em]=to.split('-').map(Number);
   let ym=Math.max(year*12+mo-1,sy*12+sm-1);
   const last=ey*12+em-1;
   for(;ym<=last;ym++){
    const Y=Math.floor(ym/12),M=ym%12+1;
-   if(f==='Monthly'){
+   if(f==='Monthly'||f==='Every 3 months'){
+    if(f==='Every 3 months'&&(ym-(year*12+mo-1))%3!==0)continue;
     const dd=monthDay(Y,M,day);
     if(dd>=d&&dd>=from&&dd<=to)result.push(dd);
    }else{
@@ -826,7 +833,9 @@ function recurring(entries,category,from,to,alerts){
   if(skip(item))continue;
   const name=String(item.name||item.member||'Untitled');
   if(!valid(item.date)){
-   if(category==='bill'&&item.frequency!=='One-time'&&nonneg(item.amount)>0){
+   if(category==='bill'&&item.frequency==='Every 3 months'&&nonneg(item.amount)>0){
+    alerts.push(name+' is an every-3-months bill without a known first due date. Enter the date to include it accurately.');
+   }else if(category==='bill'&&item.frequency!=='One-time'&&nonneg(item.amount)>0){
     alerts.push(name+' has no due date. A monthly placeholder was reserved at month-end.');
     let Y=Number(from.slice(0,4)),M=Number(from.slice(5,7));
     while(Y*12+M<=Number(to.slice(0,4))*12+Number(to.slice(5,7))){
@@ -987,7 +996,7 @@ function render(state){
  html+='</div>';
  html+='<details id="fsSources" class="fs-details"'+(openNames.has('fsSources')?' open':'')+'><summary>Edit copied income, bills, credit cards and transactions</summary><p class="hint">These are scenario-only copies of your saved entries. Amount and date changes recalculate this forecast, but never touch your original records. Removing an entry here only removes it from this preview.</p>';
  html+='<h3>Paychecks ('+snapshot.paychecks.length+')</h3>'+rowEditors(snapshot.paychecks,'paychecks',[{key:'member',title:'Member'},{key:'amount',title:'Pay ($)',type:'number'},{key:'date',title:'First pay date',type:'date'},{key:'frequency',title:'Repeat',type:'select',values:['One-time','Weekly','Biweekly','Twice monthly','Monthly']}]);
- html+='<h3>Bills ('+snapshot.bills.length+')</h3>'+rowEditors(snapshot.bills,'bills',[{key:'name',title:'Name'},{key:'amount',title:'Amount ($)',type:'number'},{key:'date',title:'Due date',type:'date'},{key:'frequency',title:'Repeat',type:'select',values:['One-time','Weekly','Biweekly','Twice monthly','Monthly']}]);
+ html+='<h3>Bills ('+snapshot.bills.length+')</h3>'+rowEditors(snapshot.bills,'bills',[{key:'name',title:'Name'},{key:'amount',title:'Amount ($)',type:'number'},{key:'date',title:'Due date',type:'date'},{key:'frequency',title:'Repeat',type:'select',values:['One-time','Weekly','Biweekly','Twice monthly','Monthly','Every 3 months']}]);
  html+='<p class="hint">House is intentionally excluded from the cash forecast. Bills marked reference-only are not charged twice.</p>';
  html+='<h3>Credit cards and loans ('+snapshot.debts.length+')</h3>'+rowEditors(snapshot.debts,'debts',[{key:'name',title:'Account'},{key:'balance',title:'Balance ($)',type:'number'},{key:'minimum',title:'Monthly minimum ($)',type:'number'},{key:'due',title:'Next due date',type:'date'},{key:'dueDay',title:'Due day',type:'number'},{key:'apr',title:'APR (%)',type:'number'}]);
  html+='<p class="hint">The weekly budget includes minimum payments, but does not project interest charges or changes in debt balances. APR and balances are available for what-if comparisons.</p>';
@@ -1082,8 +1091,10 @@ const field=(label,name,type='text',other='')=>`<label class="field">${esc(label
 const select=(label,name,values)=>`<label class="field">${esc(label)}<select name="${name}">${values.map(v=>`<option value="${esc(v[0])}">${esc(v[1])}</option>`).join('')}</select></label>`;
 const frm=(kind,contents,button)=>`<form class="form-grid" data-kind="${kind}" novalidate>${contents}<button class="primary" type="button" data-submit-action>${esc(button)}</button></form>`;
 const frequencies=['One-time','Weekly','Biweekly','Twice monthly','Monthly'];
+const billFrequencies=[...frequencies,'Every 3 months'];
 const validDate=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d||''))return false;const [y,m,day]=d.split('-').map(Number),dt=new Date(Date.UTC(y,m-1,day));return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===day};
 const freqOptions=()=>frequencies.map(v=>[v,v]);
+const billFreqOptions=()=>billFrequencies.map(v=>[v,v]);
 function paycheckForm(){return `<form class="form-grid" data-kind="paycheck" novalidate>
 ${select('Household member','member',state.people.map(p=>[p,p]))}
 <label class="field">Net paycheck amount ($)<input name="amount" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 1,800.00" required></label>
@@ -1096,7 +1107,7 @@ ${select('Pay schedule','frequency',freqOptions())}
 function paycheckError(form,text){const el=form.querySelector('[data-form-error]');if(el){el.textContent=text;el.hidden=false}message(text,true)}
 function addDays(iso,days){const [y,m,d]=iso.split('-').map(Number),v=new Date(Date.UTC(y,m-1,d+days));return v.toISOString().slice(0,10)}
 function monthAt(iso,step,day){const [y,m]=iso.split('-').map(Number),v=new Date(Date.UTC(y,m-1+step,1)),last=new Date(Date.UTC(v.getUTCFullYear(),v.getUTCMonth()+1,0)).getUTCDate();return v.getUTCFullYear()+'-'+String(v.getUTCMonth()+1).padStart(2,'0')+'-'+String(Math.min(day,last)).padStart(2,'0')}
-function nextOccurrence(base,step){const f=base.frequency,d=base.date;if(f==='Weekly')return addDays(d,7*step);if(f==='Biweekly')return addDays(d,14*step);if(f==='Monthly')return monthAt(d,step,Number(d.slice(-2)));if(f==='Twice monthly'){const day=Number(d.slice(-2)),first=day<=15?day:Math.max(1,day-15),second=Math.min(28,first+15);return step%2===1?monthAt(d,Math.floor((step-1)/2)+(day>15?1:0),day>15?first:second):monthAt(d,Math.floor(step/2),day>15?second:first)}return null}
+function nextOccurrence(base,step){const f=base.frequency,d=base.date;if(f==='Weekly')return addDays(d,7*step);if(f==='Biweekly')return addDays(d,14*step);if(f==='Monthly')return monthAt(d,step,Number(d.slice(-2)));if(f==='Every 3 months')return monthAt(d,step*3,Number(d.slice(-2)));if(f==='Twice monthly'){const day=Number(d.slice(-2)),first=day<=15?day:Math.max(1,day-15),second=Math.min(28,first+15);return step%2===1?monthAt(d,Math.floor((step-1)/2)+(day>15?1:0),day>15?first:second):monthAt(d,Math.floor(step/2),day>15?second:first)}return null}
 function obligations(){return [...state.bills.filter(x=>!x.paid&&!x.budgetOnly&&num(x.amount)>0&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||'')).map(x=>({id:x.id,name:x.name,kind:'bill',amount:num(x.amount),date:x.date,assignment:x.assignment||''})),...state.debts.filter(x=>!x.paid&&x.balance>0&&num(x.minimum)>0&&/^\d{4}-\d{2}-\d{2}$/.test(x.due||'')).map(x=>({id:x.id,name:x.name+' minimum',kind:'minimum',amount:num(x.minimum),date:x.due,assignment:x.assignment||''})),...state.extras.filter(x=>!x.paid).map(x=>({id:x.id,name:(state.debts.find(d=>d.id===x.debt)?.name||'Debt')+' extra payment',kind:'extra',amount:num(x.amount),date:state.paychecks.find(p=>p.id===x.pay)?.date||'9999-12-31',assignment:x.pay||''}))].sort((a,b)=>a.date.localeCompare(b.date))}
 function cashFlow(){
  const events=[];
@@ -1147,7 +1158,7 @@ function editingPanel(){
   <label class="field">Bill name<input name="name" value="${esc(b.name)}" required maxlength="90"></label>
   <label class="field">Amount ($)<input name="amount" type="number" min="0" step="0.01" value="${b.amount==null?'':num(b.amount)}" placeholder="Unknown"></label>
   <label class="field">Next due date<input name="date" type="date" value="${esc(b.date||'')}"></label>
-  ${select('Repeat','frequency',freqOptions()).replace(`value="${esc(b.frequency||'One-time')}"`,`value="${esc(b.frequency||'One-time')}" selected`)}
+  ${select('Repeat','frequency',billFreqOptions()).replace(`value="${esc(b.frequency||'One-time')}"`,`value="${esc(b.frequency||'One-time')}" selected`)}
   <div class="editor-actions"><button type="button" class="primary" data-submit-action>Save changes</button><button type="button" data-cancel-edit="true">Cancel</button></div></form></section>`;
  }
  if(kind==='debt'){
@@ -1172,7 +1183,7 @@ function render(){const confirm=$('#confirmation');confirm.innerHTML=pendingActi
  if(tab==='Dashboard'){html+=window.DecemberForecast.dashboard(state)}
 if(tab==='Forecast'){html+=window.ForecastStudio.render(state)}
 if(tab==='Paychecks'){html+='<p class="hint">Add or edit paychecks here. To model the next three months without changing saved income, open Forecast.</p>';html+=editingPanel();html+=paycheckForm();if(paycheckNotice)html+=`<div class="notice ${paycheckNotice.error?'error':''}" role="status" aria-live="polite">${esc(paycheckNotice.text)}</div>`;html+='<p class="hint">A confirmation appears under the form after adding. Your paychecks are saved to the private household database and can be shared with authorized members.</p>';const all=[...state.paychecks].sort((a,b)=>String(a?.date||'').localeCompare(String(b?.date||'')));html+=all.map(p=>row(p.member,`${pretty(p.date)} · ${esc(p.frequency||'One-time')}${p.parent?' · Generated':''}`,p.amount,`<button class="compact" data-edit-paycheck="${esc(p.id)}">Edit</button><button class="compact danger-btn" data-remove-pay="${esc(p.id)}">Remove</button>`)).join('')||'<div class="empty">No paychecks yet.</div>'}
-if(tab==='Bills'){html+='<p class="muted">Add your bills and upcoming payment dates. Undated bills are excluded from forecasting. Any imported Credit Cards budget line is for planning only, not a second debt minimum.</p>';html+=editingPanel();html+=frm('bill',field('Bill name','name','text','placeholder="Rent, electricity, internet..."')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Due date','date','date')+select('Repeat','frequency',freqOptions()),'Add bill');html+=state.bills.map(b=>row(b.name,`${b.date?pretty(b.date):'<span class="warn">Due date needed</span>'} · ${b.paid?'<span class="ok">Paid</span>':'Unpaid'} · ${esc(b.frequency||'One-time')}${b.budgetOnly?' · Budget allocation, not a second debt payment':''}`,b.amount,`<button class="compact" data-edit-bill="${esc(b.id)}">Edit bill</button>${b.budgetOnly?'<span class="pill">Reference only</span>':`<label class="inline-label"><input type="checkbox" data-paid-bill="${esc(b.id)}" ${b.paid?'checked':''}>Paid</label>${assignControl(b)}`}<button class="compact danger-btn" data-remove-bill="${esc(b.id)}">Remove</button>`)).join('')||'<div class="empty">No bills yet.</div>'}
+if(tab==='Bills'){html+='<p class="muted">Choose Every 3 months for quarterly bills like trash. Enter the next actual due date; the bill will repeat three months later. Bills without dates cannot be scheduled accurately. Imported Credit Cards budget lines are reference-only, not second debt minimums.</p>';html+=editingPanel();html+=frm('bill',field('Bill name','name','text','placeholder="Rent, electricity, internet..."')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Due date','date','date')+select('Repeat','frequency',billFreqOptions()),'Add bill');html+=state.bills.map(b=>row(b.name,`${b.date?pretty(b.date):'<span class="warn">Due date needed</span>'} · ${b.paid?'<span class="ok">Paid</span>':'Unpaid'} · ${esc(b.frequency||'One-time')}${b.budgetOnly?' · Budget allocation, not a second debt payment':''}`,b.amount,`<button class="compact" data-edit-bill="${esc(b.id)}">Edit bill</button>${b.budgetOnly?'<span class="pill">Reference only</span>':`<label class="inline-label"><input type="checkbox" data-paid-bill="${esc(b.id)}" ${b.paid?'checked':''}>Paid</label>${assignControl(b)}`}<button class="compact danger-btn" data-remove-bill="${esc(b.id)}">Remove</button>`)).join('')||'<div class="empty">No bills yet.</div>'}
 if(tab==='Debt & Credit'){html+='<p class="muted">Track credit cards and loans here. Set a next due date to include each minimum payment in the funding forecast. Missing APRs are not estimated.</p>';html+=editingPanel();html+=frm('debt',field('Account nickname','name')+select('Type','type',['Credit Card','Auto Loan','Personal Loan','Mortgage','Student Loan','Other'].map(v=>[v,v]))+field('Current balance','balance','number','min="0" step="0.01"')+field('Minimum payment','minimum','number','min="0.01" step="0.01"')+field('Next due date','due','date')+field('APR (%)','apr','number','min="0" step="0.01"')+field('Credit limit (0 for loans)','limit','number','min="0" step="0.01"'),'Add debt');html+=state.debts.map(d=>row(d.name,`${esc(d.type)} · ${d.apr==null?'APR not provided':num(d.apr)+'% APR'} · Minimum ${num(d.minimum)>0?money(d.minimum):'<span class="bad">Not entered</span>'} · Due ${d.due?pretty(d.due):d.dueDay?'<span class="warn">Day '+d.dueDay+' · set next date</span>':'<span class="bad">Not entered</span>'}${num(d.limit)>0?' · Limit '+money(d.limit):''}`,d.balance,`<label class="inline-label"><input type="checkbox" data-paid-debt="${esc(d.id)}" ${d.paid?'checked':''}>Minimum paid</label>${assignControl(d)}<button class="compact" data-edit-debt="${esc(d.id)}">Edit details</button><button class="compact danger-btn" data-remove-debt="${esc(d.id)}">Remove</button>`)).join('')||'<div class="empty">No debts yet.</div>';html+='<h3>Schedule an extra payment</h3>';if(state.debts.length&&state.paychecks.length)html+=frm('extra',select('Debt','debt',state.debts.map(d=>[d.id,d.name]))+select('From paycheck','paycheck',state.paychecks.map(p=>[p.id,p.member+' · '+pretty(p.date)]))+field('Extra payment ($)','amount','number','min="0.01" step="0.01"'),'Schedule extra payment');else html+='<p class="hint">Add at least one debt and paycheck first.</p>';html+=state.extras.map(x=>row(state.debts.find(d=>d.id===x.debt)?.name||'Debt',`Extra payment · ${x.paid?'Paid':'Scheduled'}`,x.amount,`<label class="inline-label"><input type="checkbox" data-paid-extra="${esc(x.id)}" ${x.paid?'checked':''}>Paid</label><button class="compact danger-btn" data-remove-extra="${esc(x.id)}">Remove</button>`)).join('');html+='<p class="hint">Account balances and interest rates are entered manually and are not linked to your bank. Debt payments are treated as reductions in principal; this app does not calculate statement interest or provide financial advice.</p>'}
 if(tab==='Debt Payoff'){html+=window.DebtPlanner.render(state)}
 if(tab==='Transactions'){html+=frm('expense',field('Expense description','name')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Transaction date','date','date'),'Add expense');html+=state.transactions.map(x=>row(x.name,`${pretty(x.date)} · ${esc(x.kind)}`,x.amount,`<button class="compact danger-btn" data-remove-transaction="${esc(x.id)}">Remove</button>`)).join('')||'<div class="empty">No transactions recorded.</div>'}
@@ -1199,7 +1210,7 @@ function submit(e){const form=e.target.closest('form[data-kind]');if(!form)retur
  if(kind==='edit-bill'){
   const b=state.bills.find(b=>b.id===form.dataset.id);if(!b)return;
   const amt=v.amount.trim()===''?null:Number(v.amount);
-  if(!v.name.trim()||(amt!==null&&(!Number.isFinite(amt)||amt<0))||(v.date&&!validDate(v.date))||!frequencies.includes(v.frequency)){message('Enter a bill name, valid amount, and valid due date.',true);return}
+  if(!v.name.trim()||(amt!==null&&(!Number.isFinite(amt)||amt<0))||(v.date&&!validDate(v.date))||!billFrequencies.includes(v.frequency)){message('Enter a bill name, valid amount, and valid due date.',true);return}
   b.name=v.name.trim();b.amount=amt===null?null:num(amt);b.date=v.date;b.frequency=v.frequency;
   editing=null;save();render();message('Bill updated successfully.');return;
  }
@@ -1211,7 +1222,7 @@ function submit(e){const form=e.target.closest('form[data-kind]');if(!form)retur
   editing=null;save();render();message('Debt updated successfully.');return;
  }
  if(['paycheck','bill','expense','extra'].includes(kind)&&(!Number.isFinite(amount)||amount<=0)){message('Enter a valid amount greater than zero.',true);return}if(kind==='paycheck'){return;}
-else if(kind==='bill'){if(!v.name.trim()||!v.date){message('Enter a bill name and due date.',true);return}state.bills.push({id:makeId(),name:v.name.trim(),amount:num(amount),date:v.date,frequency:v.frequency,paid:false,assignment:''})}
+else if(kind==='bill'){if(!v.name.trim()||!validDate(v.date)||!billFrequencies.includes(v.frequency)){message('Enter a bill name, valid due date, and repeat schedule.',true);return}state.bills.push({id:makeId(),name:v.name.trim(),amount:num(amount),date:v.date,frequency:v.frequency,paid:false,assignment:''})}
 else if(kind==='debt'){const balance=Number(v.balance),minimum=Number(v.minimum),apr=Number(v.apr),limit=Number(v.limit);if(!v.name.trim()||!v.due||![balance,minimum,apr,limit].every(Number.isFinite)||balance<0||minimum<=0||apr<0||limit<0){message('Complete the debt fields with valid amounts.',true);return}state.debts.push({id:makeId(),name:v.name.trim(),type:v.type,balance:num(balance),minimum:num(minimum),due:v.due,apr:num(apr),limit:num(limit),paid:false,assignment:''})}
 else if(kind==='expense'){if(!v.name.trim()||!v.date){message('Enter a description and date.',true);return}state.transactions.unshift({id:makeId(),name:v.name.trim(),amount:num(amount),date:v.date,kind:'expense'})}
 else if(kind==='extra'){const d=state.debts.find(d=>d.id===v.debt),p=state.paychecks.find(p=>p.id===v.paycheck),reserved=sum(state.extras.filter(x=>x.debt===v.debt&&!x.paid));if(!d||!p||num(amount)+reserved>num(d.balance)){message('Choose an existing paycheck and debt; total planned extras cannot exceed the remaining balance.',true);return}state.extras.push({id:makeId(),debt:v.debt,pay:v.paycheck,amount:num(amount),paid:false})}
