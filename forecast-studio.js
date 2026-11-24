@@ -204,8 +204,10 @@ function model(){
    else{modeText='Regular';cost=grocery;}
    carry=Math.max(0,carry+grocery-cost);
   }
-  w.shop=modeText;w.shopCost=cost;
-  if(cost){rows.push({date:w.from,category:'groceries',name:modeText+' grocery trip (what-if)',amount:-cost});spent+=cost;}
+  w.shop=modeText;w.suggestedShopCost=cost;w.shopCost=grocery;
+  // Balance reserves the entire weekly grocery allocation, whether or not the
+  // recommended individual shopping trip would spend that much.
+  if(grocery){rows.push({date:w.from,category:'groceries',name:'Weekly groceries reserved (suggested '+modeText+' trip '+fmtCash(cost/100)+')',amount:-grocery});spent+=grocery;}
  }
  rows.sort((a,b)=>a.date.localeCompare(b.date)||b.amount-a.amount);
  const days=[],details=[];let balance=cents(options.cash);
@@ -256,16 +258,16 @@ function render(state){
  html+='<div class="fs-stats">'+[['Starting cash',plan.opening],['Projected income',plan.totalIncome],['Projected expenses',plan.totalOut],['Estimated ending cash',plan.ending]].map(([t,v])=>'<div class="fs-stat"><small>'+esc(t)+'</small><strong class="'+(v<0?'fs-danger':'')+'">'+fmtCash(v/100)+'</strong></div>').join('')+'</div>';
  html+='<details id="fsSpend" class="fs-details"'+(openNames.has('fsSpend')?' open':'')+'><summary>Christmas, gas and grocery planning</summary><div class="fs-inputs">';
  html+=field('Opening cash before forecast', 'fsCash','number',options.cash,'step="0.01"');
- html+=field('Weekly groceries ($)', 'fsGrocery','number',options.grocery,'min="0" step="5"');
+ html+=field('Weekly groceries reserved ($)', 'fsGrocery','number',options.grocery,'min="0" step="5"');
  html+=field('Weekly gas ($) · TBD until entered', 'fsGas','number',options.gas,'min="0" step="10"');
  html+=field('Christmas total ($) · TBD until entered', 'fsChristmas','number',options.christmas,'min="0" step="25"');
  html+=field('Christmas estimated date','fsChristmasDate','date',options.christmasDate);
  html+=field('Cash safety cushion ($)','fsCushion','number',options.cushion,'min="0" step="50"');
- html+='</div><p class="hint">Gas and Christmas show TBD when their estimates are zero; they are not assumed to be free. Grocery trips are suggestions only.</p></details>';
+ html+='</div><p class="hint">Gas and Christmas show TBD when their estimates are zero; they are not assumed to be free. The full weekly grocery amount is reserved when calculating ending cash; the Light/Regular/Stock-up suggestion is not a discount. Already recorded grocery purchases can be double-counted if you include both.</p></details>';
  html+='<h3>Week-by-week cash forecast</h3><p class="hint">Three-month generation repeats saved schedules in this separate preview, never in Paychecks or Bills.</p>';
  html+='<div class="fs-week-list">';
  for(const w of plan.weeks){
-  html+='<article class="fs-week'+(w.low<0?' fs-risk':'')+'"><div class="fs-week-head"><strong>'+esc(labelDate(w.from))+' – '+esc(labelDate(w.to))+'</strong><span class="fs-shop">'+esc(w.shop)+' groceries · '+fmtCash(w.shopCost/100)+'</span></div>';
+  html+='<article class="fs-week'+(w.low<0?' fs-risk':'')+'"><div class="fs-week-head"><strong>'+esc(labelDate(w.from))+' – '+esc(labelDate(w.to))+'</strong><span class="fs-shop">'+(w.shop==='Not set'?'No grocery budget':esc(w.shop)+' trip suggested · '+fmtCash(w.shopCost/100)+' reserved')+'</span></div>';
   html+='<div class="fs-week-grid"><span><small>Starting</small><b>'+fmtCash(w.startCash/100)+'</b></span><span><small>Money in</small><b class="fs-income">+'+fmtCash(w.in/100)+'</b></span><span><small>Money out</small><b class="fs-expense">−'+fmtCash(w.out/100)+'</b></span><span><small>Week ending</small><b class="'+(w.endCash<0?'fs-danger':'fs-success')+'">'+fmtCash(w.endCash/100)+'</b></span></div>';
   html+='<details class="fs-week-events"><summary>Show '+w.events.length+' income and payment items · Low '+fmtCash(w.low/100)+'</summary>';
   for(const e of w.events)html+='<div class="fs-event"><time>'+esc(labelDate(e.date))+'</time><span>'+esc(e.name)+'</span><strong class="'+(e.amount<0?'fs-expense':'fs-income')+'">'+(e.amount<0?'−':'+')+fmtCash(Math.abs(e.amount)/100)+'</strong></div>';
