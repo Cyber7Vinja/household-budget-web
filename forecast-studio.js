@@ -89,14 +89,15 @@ function occurrences(base,from,to){
  if(f==='Weekly'||f==='Biweekly'){
   const step=(f==='Weekly'?7:14)*dayMs,first=Math.max(0,Math.ceil((asDate(from)-asDate(d))/step));
   for(let n=first;n<first+100;n++){const date=iso(asDate(d)+n*step);if(date>to)break;result.push(date);}
- }else if(f==='Monthly'||f==='Twice monthly'){
+ }else if(f==='Monthly'||f==='Twice monthly'||f==='Every 3 months'){
   const [year,mo,day]=d.split('-').map(Number);
   const [sy,sm]=from.split('-').map(Number),[ey,em]=to.split('-').map(Number);
   let ym=Math.max(year*12+mo-1,sy*12+sm-1);
   const last=ey*12+em-1;
   for(;ym<=last;ym++){
    const Y=Math.floor(ym/12),M=ym%12+1;
-   if(f==='Monthly'){
+   if(f==='Monthly'||f==='Every 3 months'){
+    if(f==='Every 3 months'&&(ym-(year*12+mo-1))%3!==0)continue;
     const dd=monthDay(Y,M,day);
     if(dd>=d&&dd>=from&&dd<=to)result.push(dd);
    }else{
@@ -115,7 +116,9 @@ function recurring(entries,category,from,to,alerts){
   if(skip(item))continue;
   const name=String(item.name||item.member||'Untitled');
   if(!valid(item.date)){
-   if(category==='bill'&&item.frequency!=='One-time'&&nonneg(item.amount)>0){
+   if(category==='bill'&&item.frequency==='Every 3 months'&&nonneg(item.amount)>0){
+    alerts.push(name+' is an every-3-months bill without a known first due date. Enter the date to include it accurately.');
+   }else if(category==='bill'&&item.frequency!=='One-time'&&nonneg(item.amount)>0){
     alerts.push(name+' has no due date. A monthly placeholder was reserved at month-end.');
     let Y=Number(from.slice(0,4)),M=Number(from.slice(5,7));
     while(Y*12+M<=Number(to.slice(0,4))*12+Number(to.slice(5,7))){
@@ -276,7 +279,7 @@ function render(state){
  html+='</div>';
  html+='<details id="fsSources" class="fs-details"'+(openNames.has('fsSources')?' open':'')+'><summary>Edit copied income, bills, credit cards and transactions</summary><p class="hint">These are scenario-only copies of your saved entries. Amount and date changes recalculate this forecast, but never touch your original records. Removing an entry here only removes it from this preview.</p>';
  html+='<h3>Paychecks ('+snapshot.paychecks.length+')</h3>'+rowEditors(snapshot.paychecks,'paychecks',[{key:'member',title:'Member'},{key:'amount',title:'Pay ($)',type:'number'},{key:'date',title:'First pay date',type:'date'},{key:'frequency',title:'Repeat',type:'select',values:['One-time','Weekly','Biweekly','Twice monthly','Monthly']}]);
- html+='<h3>Bills ('+snapshot.bills.length+')</h3>'+rowEditors(snapshot.bills,'bills',[{key:'name',title:'Name'},{key:'amount',title:'Amount ($)',type:'number'},{key:'date',title:'Due date',type:'date'},{key:'frequency',title:'Repeat',type:'select',values:['One-time','Weekly','Biweekly','Twice monthly','Monthly']}]);
+ html+='<h3>Bills ('+snapshot.bills.length+')</h3>'+rowEditors(snapshot.bills,'bills',[{key:'name',title:'Name'},{key:'amount',title:'Amount ($)',type:'number'},{key:'date',title:'Due date',type:'date'},{key:'frequency',title:'Repeat',type:'select',values:['One-time','Weekly','Biweekly','Twice monthly','Monthly','Every 3 months']}]);
  html+='<p class="hint">House is intentionally excluded from the cash forecast. Bills marked reference-only are not charged twice.</p>';
  html+='<h3>Credit cards and loans ('+snapshot.debts.length+')</h3>'+rowEditors(snapshot.debts,'debts',[{key:'name',title:'Account'},{key:'balance',title:'Balance ($)',type:'number'},{key:'minimum',title:'Monthly minimum ($)',type:'number'},{key:'due',title:'Next due date',type:'date'},{key:'dueDay',title:'Due day',type:'number'},{key:'apr',title:'APR (%)',type:'number'}]);
  html+='<p class="hint">The weekly budget includes minimum payments, but does not project interest charges or changes in debt balances. APR and balances are available for what-if comparisons.</p>';
