@@ -185,6 +185,13 @@ function makeForecast(state,options={}){
   w.close=dmap.get(w.end);
   w.low=Math.min(openingBalance,...observations.map(d=>d.balance));
   w.high=Math.max(openingBalance,...observations.map(d=>d.balance));
+  // Determine if cash goes negative BEFORE another deposit. Week-end cash by
+  // itself can conceal a missed due date, so preserve the date of the low.
+  const firstBelowZero=observations.find(d=>d.balance<0);
+  w.shortfallDate=w.low<0?(openingBalance<0?w.start:firstBelowZero?.date||w.start):null;
+  w.lowDate=observations.reduce((best,d)=>d.balance<best.balance?d:best,{date:w.start,balance:openingBalance}).date;
+  const nextIncome=w.shortfallDate?detail.find(e=>e.kind==='income'&&e.date>w.shortfallDate):null;
+  w.nextIncome=nextIncome?{date:nextIncome.date,amount:nextIncome.amount}:null;
   w.income=detail.filter(e=>e.kind==='income'&&e.date>=w.start&&e.date<=w.end).reduce((s,e)=>s+e.amount,0);
   const weekEntries=detail.filter(e=>e.date>=w.start&&e.date<=w.end);
   const by=k=>-weekEntries.filter(e=>e.kind===k).reduce((sum,e)=>sum+Math.min(0,e.amount),0);
@@ -251,14 +258,32 @@ function plot(f){
 function weeklyBreakdown(f,context){
  let html='<section class="wk-section"><div class="wk-head"><div><h3>Week-by-week money in & money out</h3><p class="hint">Each week carries its ending balance into the next. Includes confirmed entries and editable spending estimates.</p></div><button type="button" id="wkChangePlan" class="compact">Edit spending estimates</button></div>';
  const TBD='<span class="wk-tbd">TBD — not deducted</span>';
+ const cushion=cents(f.options.buffer);
+ const riskWeeks=f.weeks.filter(w=>w.low<0);
+ if(riskWeeks.length){
+  html+='<div class="wk-overview" role="alert"><strong>⚠ '+riskWeeks.length+' week'+(riskWeeks.length===1?'':'s')+' with a projected cash shortfall before the next income</strong><p>A positive week-ending balance does not mean every bill can be covered on its due date. Review the red week'+(riskWeeks.length===1?'':'s')+' below.</p><div class="wk-risk-links">';
+  for(const w of riskWeeks)html+='<a href="#wk-'+esc(w.start)+'">'+esc(fmt(w.start))+'–'+esc(fmt(w.end))+': '+money(-w.low)+' needed by '+esc(fmt(w.lowDate))+'</a>';
+  html+='</div></div>';
+ }
+ html+='<div class="wk-legend" aria-label="Week status colors"><span class="wk-key wk-key-safe">● Covered</span><span class="wk-key wk-key-tight">● Low cash cushion</span><span class="wk-key wk-key-risk">● Cash shortfall</span></div>';
  for(const w of f.weeks){
   const startLabel=fmt(w.start),endLabel=fmt(w.end),details=w.events||[],c=w.categories;
   const sign=w.income-w.out;
+  const status=w.low<0?'risk':w.low<cushion?'tight':'safe';
+  const statusLabel=status==='risk'?'Shortfall before payday':status==='tight'?'Low cash cushion':'Bills covered';
   const mode=w.mode==='Light'?'dec-light':w.mode==='Stock-up'?'dec-heavy':'dec-regular';
-  html+='<article class="wk-card'+(w.close<0||w.low<0?' wk-risk':'')+'"><div class="wk-top"><div><strong class="wk-dates">'+esc(startLabel)+' – '+esc(endLabel)+'</strong><small>Week ending '+esc(endLabel)+'</small></div><span class="dec-grocery '+mode+'">'+(w.mode==='Not set'?'No groceries budget':esc(w.mode)+' trip suggested')+'</span></div>';
+  html+='<article id="wk-'+esc(w.start)+'" class="wk-card wk-'+status+'"><div class="wk-top"><div><strong class="wk-dates">'+esc(startLabel)+' – '+esc(endLabel)+'</strong><small>Week ending '+esc(endLabel)+'</small></div><div class="wk-top-right"><span class="wk-status wk-status-'+status+'"><span aria-hidden="true">●</span> '+statusLabel+'</span><span class="dec-grocery '+mode+'">'+(w.mode==='Not set'?'No groceries budget':esc(w.mode)+' trip suggested')+'</span></div></div>';
+  if(status==='risk'){
+   html+='<div class="wk-cash-alert wk-cash-alert-risk" role="note"><strong>⚠ '+money(-w.low)+' additional cash needed by '+esc(fmt(w.lowDate))+'</strong><p>The projected balance first falls below $0 on <b>'+esc(fmt(w.shortfallDate))+'</b>, reaching <b>'+money(w.low)+'</b> on <b>'+esc(fmt(w.lowDate))+'</b>.';
+   if(w.nextIncome)html+=' Next recorded paycheck: <b>'+esc(fmt(w.nextIncome.date))+' ('+money(w.nextIncome.amount)+')</b>.';
+   else html+=' No later paycheck is scheduled within this forecast window.';
+   html+=' Consider moving a planned expense or confirming a later payment date with the biller.</p></div>';
+  }else if(status==='tight'){
+   html+='<div class="wk-cash-alert wk-cash-alert-tight"><strong>Low cash cushion</strong><p>Cash stays at or above $0 but reaches '+money(w.low)+' on '+esc(fmt(w.lowDate))+', below your '+money(cushion)+' safety cushion. Bills are covered under the entered assumptions.</p></div>';
+  }
   html+='<div class="wk-figures"><div><small>Starting</small><b>'+money(w.open)+'</b></div><div class="wk-in"><small>Money in</small><b>+'+money(w.income)+'</b></div><div class="wk-out"><small>Money out</small><b>−'+money(w.out)+'</b></div><div class="wk-ending"><small>Ending cash</small><b>'+money(w.close)+'</b></div></div>';
   html+='<div class="wk-categories"><span>Bills <b>'+money(c.bills)+'</b></span><span>Credit cards <b>'+money(c.cards)+'</b></span><span>Other debts <b>'+money(c.otherDebt)+'</b></span><span>Groceries reserved <b>'+money(c.groceries)+'</b></span><span>Gas '+(f.options.gasWeekly>0?'<b>'+money(c.gas)+'</b>':TBD)+'</span><span>Christmas '+(f.options.christmas>0?'<b>'+money(c.christmas)+'</b>':TBD)+'</span><span>Other <b>'+money(c.other)+'</b></span></div>';
-  html+='<div class="wk-bottom"><span>Net this week <b class="'+(sign<0?'dec-red':'dec-green')+'">'+(sign<0?'−':'+')+money(Math.abs(sign))+'</b></span><span>Lowest cash <b class="'+(w.low<0?'dec-red':'')+'">'+money(w.low)+'</b></span></div>';
+  html+='<div class="wk-bottom"><span>Net this week <b class="'+(sign<0?'dec-red':'dec-green')+'">'+(sign<0?'−':'+')+money(Math.abs(sign))+'</b></span><span>Lowest cash <b class="'+(w.low<0?'dec-red':status==='tight'?'wk-yellow':'')+'">'+money(w.low)+'</b> <small>('+esc(fmt(w.lowDate))+')</small></span></div>';
   html+='<details class="wk-detail"><summary>See individual payments and paychecks ('+details.length+')</summary>';
   if(details.length){
    for(const e of details)html+='<div class="wk-transaction"><time>'+esc(fmt(e.date))+'</time><span>'+esc(e.title)+'</span><b class="'+(e.amount>=0?'dec-green':'dec-red')+'">'+(e.amount>=0?'+':'−')+money(Math.abs(e.amount))+'</b></div>';
