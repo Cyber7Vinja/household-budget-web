@@ -222,6 +222,69 @@
 .dp-data-details li{margin:9px 0}
 @media(max-width:600px){.dp-cashline{font-size:12px}.dp-cashline b{font-size:12px}.dp-cash-total{display:grid;gap:6px}.dp-cash-total strong:last-child{text-align:left}}
 
+
+/* Readable payment-timing indicators: use color plus explicit words and dates. */
+.wk-overview{border:2px solid #fa939d;border-left:6px solid #ff7784;border-radius:13px;background:#45262e;color:#ffedf0;padding:16px 18px;line-height:1.5}
+.wk-overview strong{display:block;font-size:16px}
+.wk-overview p{margin:8px 0 12px;color:#ffe0e5;font-size:13px}
+.wk-risk-links{display:flex;gap:10px;flex-wrap:wrap}
+.wk-risk-links a{color:#fff4f5;font-weight:700;font-size:13px;text-decoration:underline;text-underline-offset:3px;padding:7px 10px;border-radius:8px;background:#703640}
+.wk-risk-links a:hover{background:#874650}
+.wk-legend{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;font-size:12px;margin:2px 0 3px}
+.wk-key{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:20px;font-weight:700}
+.wk-key-safe{background:#173c32;color:#b6f5d5;border:1px solid #489e7a}
+.wk-key-tight{background:#443719;color:#ffe7aa;border:1px solid #c69f50}
+.wk-key-risk{background:#542b32;color:#ffcad0;border:1px solid #d77883}
+.wk-card.wk-safe{border:2px solid #397c65;border-left:5px solid #60c99c}
+.wk-card.wk-tight{border:2px solid #b69447;border-left:5px solid #edba55}
+.wk-card.wk-risk{border:2px solid #e1848e;border-left:5px solid #ff6679}
+.wk-card.wk-safe .wk-top{background:#17372f}
+.wk-card.wk-tight .wk-top{background:#3c3423}
+.wk-card.wk-risk .wk-top{background:#4a2933}
+.wk-top-right{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px 10px}
+.wk-status{display:inline-flex;align-items:center;gap:5px;border-radius:18px;padding:5px 10px;font-weight:800;font-size:12px;white-space:nowrap}
+.wk-status-safe{background:#1b533f;color:#c9ffdf;border:1px solid #63bf94}
+.wk-status-tight{background:#59451d;color:#ffeba9;border:1px solid #d7af50}
+.wk-status-risk{background:#713039;color:#fff0f0;border:1px solid #fa8e9c}
+.wk-cash-alert{padding:12px 16px;border-bottom:1px solid #475262;line-height:1.5;font-size:13px}
+.wk-cash-alert strong{font-size:14px}
+.wk-cash-alert p{margin:5px 0 0}
+.wk-cash-alert-risk{background:#4d2732;color:#ffe4e9}
+.wk-cash-alert-risk strong{color:#fff3f4}
+.wk-cash-alert-tight{background:#40351f;color:#ffedc4}
+.wk-cash-alert-tight strong{color:#ffebae}
+.wk-yellow{color:#ffe09a!important}
+.wk-card.wk-risk .wk-ending b{color:#e2fff0}
+.wk-card.wk-risk .wk-ending b.dec-red{color:#ffbbc1!important}
+.wk-bottom small{font-size:11px;color:#bfcbe0}
+.wk-card{scroll-margin-top:20px}
+/* Separate Forecast gets the same semantics while keeping sandbox changes isolated. */
+.fs-timing-summary{border:2px solid #f49ba2;border-left:6px solid #ff7684;border-radius:12px;background:#4a2934;color:#ffe8eb;padding:14px 17px;font-size:13px}
+.fs-timing-summary strong{font-size:15px}
+.fs-timing-summary p{margin:6px 0 0}
+.fs-week.fs-safe{border:2px solid #397e65;border-left:5px solid #61c99c}
+.fs-week.fs-tight{border:2px solid #c19d50;border-left:5px solid #edba55}
+.fs-week.fs-risk{border:2px solid #e1848e;border-left:5px solid #ff6679}
+.fs-week.fs-safe .fs-week-head{background:#193b32}
+.fs-week.fs-tight .fs-week-head{background:#3e3423}
+.fs-week.fs-risk .fs-week-head{background:#4a2933}
+.fs-week-right{display:flex;align-items:center;justify-content:flex-end;gap:8px 12px;flex-wrap:wrap}
+.fs-status{display:inline-flex;align-items:center;gap:6px;border-radius:15px;padding:5px 9px;font-size:12px;font-weight:800;white-space:nowrap}
+.fs-status-safe{background:#1b523f;color:#c9ffdf;border:1px solid #63bf94}
+.fs-status-tight{background:#59451d;color:#ffeba9;border:1px solid #d7af50}
+.fs-status-risk{background:#713039;color:#fff0f0;border:1px solid #fa8e9c}
+.fs-timing-alert{padding:12px 16px;border-bottom:1px solid #46546d;font-size:13px;line-height:1.5}
+.fs-timing-alert p{margin:6px 0 0}
+.fs-timing-alert-risk{background:#4d2732;color:#ffe4e9}
+.fs-timing-alert-tight{background:#40351f;color:#ffedc4}
+@media(max-width:650px){
+ .wk-top-right,.fs-week-right{justify-content:flex-start;width:100%}
+ .wk-top,.fs-week-head{align-items:flex-start;flex-wrap:wrap}
+ .wk-overview{padding:13px}
+ .wk-risk-links a{width:100%}
+ .wk-cash-alert,.fs-timing-alert{padding:11px 13px}
+}
+
 </style></head><body>
 <div id="authScreen" class="auth-wrap"><div class="auth-card"><h1>Household Budget</h1><h2>Private access</h2><p id="authNote" class="auth-note">Sign in to see your private budget. The website does not publish card balances or transactions.</p>
 <div id="loginFields"><form id="authForm" novalidate><label class="field">Email<input id="loginEmail" type="email" autocomplete="email" required></label><label class="field">Password<input id="loginPassword" type="password" autocomplete="current-password" minlength="12" required></label><button id="signin" class="primary" type="button">Sign in</button><button id="signup" type="button">Create household login</button></form></div>
@@ -584,6 +647,13 @@ function makeForecast(state,options={}){
   w.close=dmap.get(w.end);
   w.low=Math.min(openingBalance,...observations.map(d=>d.balance));
   w.high=Math.max(openingBalance,...observations.map(d=>d.balance));
+  // Determine if cash goes negative BEFORE another deposit. Week-end cash by
+  // itself can conceal a missed due date, so preserve the date of the low.
+  const firstBelowZero=observations.find(d=>d.balance<0);
+  w.shortfallDate=w.low<0?(openingBalance<0?w.start:firstBelowZero?.date||w.start):null;
+  w.lowDate=observations.reduce((best,d)=>d.balance<best.balance?d:best,{date:w.start,balance:openingBalance}).date;
+  const nextIncome=w.shortfallDate?detail.find(e=>e.kind==='income'&&e.date>w.shortfallDate):null;
+  w.nextIncome=nextIncome?{date:nextIncome.date,amount:nextIncome.amount}:null;
   w.income=detail.filter(e=>e.kind==='income'&&e.date>=w.start&&e.date<=w.end).reduce((s,e)=>s+e.amount,0);
   const weekEntries=detail.filter(e=>e.date>=w.start&&e.date<=w.end);
   const by=k=>-weekEntries.filter(e=>e.kind===k).reduce((sum,e)=>sum+Math.min(0,e.amount),0);
@@ -650,14 +720,32 @@ function plot(f){
 function weeklyBreakdown(f,context){
  let html='<section class="wk-section"><div class="wk-head"><div><h3>Week-by-week money in & money out</h3><p class="hint">Each week carries its ending balance into the next. Includes confirmed entries and editable spending estimates.</p></div><button type="button" id="wkChangePlan" class="compact">Edit spending estimates</button></div>';
  const TBD='<span class="wk-tbd">TBD — not deducted</span>';
+ const cushion=cents(f.options.buffer);
+ const riskWeeks=f.weeks.filter(w=>w.low<0);
+ if(riskWeeks.length){
+  html+='<div class="wk-overview" role="alert"><strong>⚠ '+riskWeeks.length+' week'+(riskWeeks.length===1?'':'s')+' with a projected cash shortfall before the next income</strong><p>A positive week-ending balance does not mean every bill can be covered on its due date. Review the red week'+(riskWeeks.length===1?'':'s')+' below.</p><div class="wk-risk-links">';
+  for(const w of riskWeeks)html+='<a href="#wk-'+esc(w.start)+'">'+esc(fmt(w.start))+'–'+esc(fmt(w.end))+': '+money(-w.low)+' needed by '+esc(fmt(w.lowDate))+'</a>';
+  html+='</div></div>';
+ }
+ html+='<div class="wk-legend" aria-label="Week status colors"><span class="wk-key wk-key-safe">● Covered</span><span class="wk-key wk-key-tight">● Low cash cushion</span><span class="wk-key wk-key-risk">● Cash shortfall</span></div>';
  for(const w of f.weeks){
   const startLabel=fmt(w.start),endLabel=fmt(w.end),details=w.events||[],c=w.categories;
   const sign=w.income-w.out;
+  const status=w.low<0?'risk':w.low<cushion?'tight':'safe';
+  const statusLabel=status==='risk'?'Shortfall before payday':status==='tight'?'Low cash cushion':'Bills covered';
   const mode=w.mode==='Light'?'dec-light':w.mode==='Stock-up'?'dec-heavy':'dec-regular';
-  html+='<article class="wk-card'+(w.close<0||w.low<0?' wk-risk':'')+'"><div class="wk-top"><div><strong class="wk-dates">'+esc(startLabel)+' – '+esc(endLabel)+'</strong><small>Week ending '+esc(endLabel)+'</small></div><span class="dec-grocery '+mode+'">'+(w.mode==='Not set'?'No groceries budget':esc(w.mode)+' trip suggested')+'</span></div>';
+  html+='<article id="wk-'+esc(w.start)+'" class="wk-card wk-'+status+'"><div class="wk-top"><div><strong class="wk-dates">'+esc(startLabel)+' – '+esc(endLabel)+'</strong><small>Week ending '+esc(endLabel)+'</small></div><div class="wk-top-right"><span class="wk-status wk-status-'+status+'"><span aria-hidden="true">●</span> '+statusLabel+'</span><span class="dec-grocery '+mode+'">'+(w.mode==='Not set'?'No groceries budget':esc(w.mode)+' trip suggested')+'</span></div></div>';
+  if(status==='risk'){
+   html+='<div class="wk-cash-alert wk-cash-alert-risk" role="note"><strong>⚠ '+money(-w.low)+' additional cash needed by '+esc(fmt(w.lowDate))+'</strong><p>The projected balance first falls below $0 on <b>'+esc(fmt(w.shortfallDate))+'</b>, reaching <b>'+money(w.low)+'</b> on <b>'+esc(fmt(w.lowDate))+'</b>.';
+   if(w.nextIncome)html+=' Next recorded paycheck: <b>'+esc(fmt(w.nextIncome.date))+' ('+money(w.nextIncome.amount)+')</b>.';
+   else html+=' No later paycheck is scheduled within this forecast window.';
+   html+=' Consider moving a planned expense or confirming a later payment date with the biller.</p></div>';
+  }else if(status==='tight'){
+   html+='<div class="wk-cash-alert wk-cash-alert-tight"><strong>Low cash cushion</strong><p>Cash stays at or above $0 but reaches '+money(w.low)+' on '+esc(fmt(w.lowDate))+', below your '+money(cushion)+' safety cushion. Bills are covered under the entered assumptions.</p></div>';
+  }
   html+='<div class="wk-figures"><div><small>Starting</small><b>'+money(w.open)+'</b></div><div class="wk-in"><small>Money in</small><b>+'+money(w.income)+'</b></div><div class="wk-out"><small>Money out</small><b>−'+money(w.out)+'</b></div><div class="wk-ending"><small>Ending cash</small><b>'+money(w.close)+'</b></div></div>';
   html+='<div class="wk-categories"><span>Bills <b>'+money(c.bills)+'</b></span><span>Credit cards <b>'+money(c.cards)+'</b></span><span>Other debts <b>'+money(c.otherDebt)+'</b></span><span>Groceries reserved <b>'+money(c.groceries)+'</b></span><span>Gas '+(f.options.gasWeekly>0?'<b>'+money(c.gas)+'</b>':TBD)+'</span><span>Christmas '+(f.options.christmas>0?'<b>'+money(c.christmas)+'</b>':TBD)+'</span><span>Other <b>'+money(c.other)+'</b></span></div>';
-  html+='<div class="wk-bottom"><span>Net this week <b class="'+(sign<0?'dec-red':'dec-green')+'">'+(sign<0?'−':'+')+money(Math.abs(sign))+'</b></span><span>Lowest cash <b class="'+(w.low<0?'dec-red':'')+'">'+money(w.low)+'</b></span></div>';
+  html+='<div class="wk-bottom"><span>Net this week <b class="'+(sign<0?'dec-red':'dec-green')+'">'+(sign<0?'−':'+')+money(Math.abs(sign))+'</b></span><span>Lowest cash <b class="'+(w.low<0?'dec-red':status==='tight'?'wk-yellow':'')+'">'+money(w.low)+'</b> <small>('+esc(fmt(w.lowDate))+')</small></span></div>';
   html+='<details class="wk-detail"><summary>See individual payments and paychecks ('+details.length+')</summary>';
   if(details.length){
    for(const e of details)html+='<div class="wk-transaction"><time>'+esc(fmt(e.date))+'</time><span>'+esc(e.title)+'</span><b class="'+(e.amount>=0?'dec-green':'dec-red')+'">'+(e.amount>=0?'+':'−')+money(Math.abs(e.amount))+'</b></div>';
@@ -942,7 +1030,13 @@ function model(){
   w.events=details.filter(e=>e.date>=w.from&&e.date<=w.to);
   w.in=w.events.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
   w.out=-w.events.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
-  w.low=Math.min(w.startCash,...days.filter(d=>d.date>=w.from&&d.date<=w.to).map(d=>d.balance));
+  const observations=days.filter(d=>d.date>=w.from&&d.date<=w.to);
+  w.low=Math.min(w.startCash,...observations.map(d=>d.balance));
+  w.lowDate=observations.reduce((best,d)=>d.balance<best.balance?d:best,{date:w.from,balance:w.startCash}).date;
+  const firstNegative=observations.find(d=>d.balance<0);
+  w.shortfallDate=w.low<0?(w.startCash<0?w.from:firstNegative?.date||w.from):null;
+  const nextIncome=w.shortfallDate?details.find(e=>e.amount>0&&e.date>w.shortfallDate):null;
+  w.nextIncome=nextIncome?{date:nextIncome.date,amount:nextIncome.amount}:null;
   if(w.startCash+w.in-w.out!==w.endCash)throw Error('Forecast week does not reconcile.');
  }
  if(!gas)warn.push('Gas is TBD and has not been deducted.');
@@ -985,9 +1079,21 @@ function render(state){
  html+=field('Cash safety cushion ($)','fsCushion','number',options.cushion,'min="0" step="50"');
  html+='</div><p class="hint">Gas and Christmas show TBD when their estimates are zero; they are not assumed to be free. The full weekly grocery amount is reserved when calculating ending cash; the Light/Regular/Stock-up suggestion is not a discount. Already recorded grocery purchases can be double-counted if you include both.</p></details>';
  html+='<h3>Week-by-week cash forecast</h3><p class="hint">Three-month generation repeats saved schedules in this separate preview, never in Paychecks or Bills.</p>';
+ const dangerWeeks=plan.weeks.filter(w=>w.low<0);
+ if(dangerWeeks.length)html+='<div class="fs-timing-summary" role="alert"><strong>⚠ '+dangerWeeks.length+' week'+(dangerWeeks.length===1?'':'s')+' with negative projected cash before a later deposit</strong><p>Even a positive week-ending balance can hide a payment-timing shortage. Review the red weeks below.</p></div>';
  html+='<div class="fs-week-list">';
  for(const w of plan.weeks){
-  html+='<article class="fs-week'+(w.low<0?' fs-risk':'')+'"><div class="fs-week-head"><strong>'+esc(labelDate(w.from))+' – '+esc(labelDate(w.to))+'</strong><span class="fs-shop">'+(w.shop==='Not set'?'No grocery budget':esc(w.shop)+' trip suggested · '+fmtCash(w.shopCost/100)+' reserved')+'</span></div>';
+  const status=w.low<0?'risk':w.low<nonneg(options.cushion)?'tight':'safe';
+  const label=status==='risk'?'Cash shortfall':status==='tight'?'Low cash cushion':'Bills covered';
+  html+='<article class="fs-week fs-'+status+'"><div class="fs-week-head"><strong>'+esc(labelDate(w.from))+' – '+esc(labelDate(w.to))+'</strong><div class="fs-week-right"><span class="fs-status fs-status-'+status+'"><span aria-hidden="true">●</span> '+label+'</span><span class="fs-shop">'+(w.shop==='Not set'?'No grocery budget':esc(w.shop)+' trip suggested · '+fmtCash(w.shopCost/100)+' reserved')+'</span></div></div>';
+  if(status==='risk'){
+   html+='<div class="fs-timing-alert fs-timing-alert-risk"><strong>⚠ '+fmtCash(-w.low/100)+' needed by '+esc(labelDate(w.lowDate))+'</strong><p>Cash first falls below $0 on '+esc(labelDate(w.shortfallDate))+'. Lowest projected cash: '+fmtCash(w.low/100)+'.';
+   if(w.nextIncome)html+=' Next projected income: '+esc(labelDate(w.nextIncome.date))+' ('+fmtCash(w.nextIncome.amount/100)+').';
+   else html+=' No later income is scheduled within this forecast window.';
+   html+='</p></div>';
+  }else if(status==='tight'){
+   html+='<div class="fs-timing-alert fs-timing-alert-tight"><strong>Low cash cushion</strong><p>Lowest projected balance: '+fmtCash(w.low/100)+' on '+esc(labelDate(w.lowDate))+', below the '+fmtCash(options.cushion)+' cushion. Cash stays nonnegative under these assumptions.</p></div>';
+  }
   html+='<div class="fs-week-grid"><span><small>Starting</small><b>'+fmtCash(w.startCash/100)+'</b></span><span><small>Money in</small><b class="fs-income">+'+fmtCash(w.in/100)+'</b></span><span><small>Money out</small><b class="fs-expense">−'+fmtCash(w.out/100)+'</b></span><span><small>Week ending</small><b class="'+(w.endCash<0?'fs-danger':'fs-success')+'">'+fmtCash(w.endCash/100)+'</b></span></div>';
   html+='<details class="fs-week-events"><summary>Show '+w.events.length+' income and payment items · Low '+fmtCash(w.low/100)+'</summary>';
   for(const e of w.events)html+='<div class="fs-event"><time>'+esc(labelDate(e.date))+'</time><span>'+esc(e.name)+'</span><strong class="'+(e.amount<0?'fs-expense':'fs-income')+'">'+(e.amount<0?'−':'+')+fmtCash(Math.abs(e.amount)/100)+'</strong></div>';
