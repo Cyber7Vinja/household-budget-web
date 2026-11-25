@@ -225,7 +225,13 @@ function model(){
   w.events=details.filter(e=>e.date>=w.from&&e.date<=w.to);
   w.in=w.events.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
   w.out=-w.events.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
-  w.low=Math.min(w.startCash,...days.filter(d=>d.date>=w.from&&d.date<=w.to).map(d=>d.balance));
+  const observations=days.filter(d=>d.date>=w.from&&d.date<=w.to);
+  w.low=Math.min(w.startCash,...observations.map(d=>d.balance));
+  w.lowDate=observations.reduce((best,d)=>d.balance<best.balance?d:best,{date:w.from,balance:w.startCash}).date;
+  const firstNegative=observations.find(d=>d.balance<0);
+  w.shortfallDate=w.low<0?(w.startCash<0?w.from:firstNegative?.date||w.from):null;
+  const nextIncome=w.shortfallDate?details.find(e=>e.amount>0&&e.date>w.shortfallDate):null;
+  w.nextIncome=nextIncome?{date:nextIncome.date,amount:nextIncome.amount}:null;
   if(w.startCash+w.in-w.out!==w.endCash)throw Error('Forecast week does not reconcile.');
  }
  if(!gas)warn.push('Gas is TBD and has not been deducted.');
@@ -268,9 +274,21 @@ function render(state){
  html+=field('Cash safety cushion ($)','fsCushion','number',options.cushion,'min="0" step="50"');
  html+='</div><p class="hint">Gas and Christmas show TBD when their estimates are zero; they are not assumed to be free. The full weekly grocery amount is reserved when calculating ending cash; the Light/Regular/Stock-up suggestion is not a discount. Already recorded grocery purchases can be double-counted if you include both.</p></details>';
  html+='<h3>Week-by-week cash forecast</h3><p class="hint">Three-month generation repeats saved schedules in this separate preview, never in Paychecks or Bills.</p>';
+ const dangerWeeks=plan.weeks.filter(w=>w.low<0);
+ if(dangerWeeks.length)html+='<div class="fs-timing-summary" role="alert"><strong>⚠ '+dangerWeeks.length+' week'+(dangerWeeks.length===1?'':'s')+' with negative projected cash before a later deposit</strong><p>Even a positive week-ending balance can hide a payment-timing shortage. Review the red weeks below.</p></div>';
  html+='<div class="fs-week-list">';
  for(const w of plan.weeks){
-  html+='<article class="fs-week'+(w.low<0?' fs-risk':'')+'"><div class="fs-week-head"><strong>'+esc(labelDate(w.from))+' – '+esc(labelDate(w.to))+'</strong><span class="fs-shop">'+(w.shop==='Not set'?'No grocery budget':esc(w.shop)+' trip suggested · '+fmtCash(w.shopCost/100)+' reserved')+'</span></div>';
+  const status=w.low<0?'risk':w.low<nonneg(options.cushion)?'tight':'safe';
+  const label=status==='risk'?'Cash shortfall':status==='tight'?'Low cash cushion':'Bills covered';
+  html+='<article class="fs-week fs-'+status+'"><div class="fs-week-head"><strong>'+esc(labelDate(w.from))+' – '+esc(labelDate(w.to))+'</strong><div class="fs-week-right"><span class="fs-status fs-status-'+status+'"><span aria-hidden="true">●</span> '+label+'</span><span class="fs-shop">'+(w.shop==='Not set'?'No grocery budget':esc(w.shop)+' trip suggested · '+fmtCash(w.shopCost/100)+' reserved')+'</span></div></div>';
+  if(status==='risk'){
+   html+='<div class="fs-timing-alert fs-timing-alert-risk"><strong>⚠ '+fmtCash(-w.low/100)+' needed by '+esc(labelDate(w.lowDate))+'</strong><p>Cash first falls below $0 on '+esc(labelDate(w.shortfallDate))+'. Lowest projected cash: '+fmtCash(w.low/100)+'.';
+   if(w.nextIncome)html+=' Next projected income: '+esc(labelDate(w.nextIncome.date))+' ('+fmtCash(w.nextIncome.amount/100)+').';
+   else html+=' No later income is scheduled within this forecast window.';
+   html+='</p></div>';
+  }else if(status==='tight'){
+   html+='<div class="fs-timing-alert fs-timing-alert-tight"><strong>Low cash cushion</strong><p>Lowest projected balance: '+fmtCash(w.low/100)+' on '+esc(labelDate(w.lowDate))+', below the '+fmtCash(options.cushion)+' cushion. Cash stays nonnegative under these assumptions.</p></div>';
+  }
   html+='<div class="fs-week-grid"><span><small>Starting</small><b>'+fmtCash(w.startCash/100)+'</b></span><span><small>Money in</small><b class="fs-income">+'+fmtCash(w.in/100)+'</b></span><span><small>Money out</small><b class="fs-expense">−'+fmtCash(w.out/100)+'</b></span><span><small>Week ending</small><b class="'+(w.endCash<0?'fs-danger':'fs-success')+'">'+fmtCash(w.endCash/100)+'</b></span></div>';
   html+='<details class="fs-week-events"><summary>Show '+w.events.length+' income and payment items · Low '+fmtCash(w.low/100)+'</summary>';
   for(const e of w.events)html+='<div class="fs-event"><time>'+esc(labelDate(e.date))+'</time><span>'+esc(e.name)+'</span><strong class="'+(e.amount<0?'fs-expense':'fs-income')+'">'+(e.amount<0?'−':'+')+fmtCash(Math.abs(e.amount)/100)+'</strong></div>';
