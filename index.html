@@ -285,6 +285,35 @@
  .wk-cash-alert,.fs-timing-alert{padding:11px 13px}
 }
 
+
+/* Spending breakdown pie chart; color + labels + percentage for accessibility. */
+.spb-panel{background:#131f30;border:1px solid #455a77;border-radius:15px;padding:18px;margin:10px 0 20px;display:grid;gap:14px}
+.spb-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.spb-head h3{font-size:20px;margin:0 0 5px;color:#f5f8ff}
+.spb-head p{font-size:13px;color:#bdcee5;margin:0;max-width:620px;line-height:1.55}
+.spb-controls{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.spb-controls label{display:grid;gap:6px;color:#dbe9fc;font-size:12px;font-weight:700}
+.spb-controls select{max-width:100%;min-width:165px;background:#1c2d42;color:#f0f7ff;border:1px solid #5a7090;border-radius:9px;padding:9px 11px;font-size:13px}
+.spb-summary{display:flex;justify-content:space-between;align-items:baseline;gap:12px;background:#1d3045;border-radius:10px;padding:12px 15px;flex-wrap:wrap}
+.spb-summary span{font-size:12px;color:#c5d7eb}
+.spb-summary strong{font-size:25px;color:#f5fbff;font-variant-numeric:tabular-nums}
+.spb-grid{display:grid;grid-template-columns:minmax(210px,290px) minmax(0,1fr);gap:20px;align-items:center}
+.spb-visual{display:flex;align-items:center;justify-content:center;padding:5px}
+.spb-visual svg{width:min(100%,280px);height:auto;overflow:visible}
+.spb-legend{min-width:0;display:grid;grid-template-columns:1fr;gap:0}
+.spb-legend-item{display:grid;grid-template-columns:14px minmax(110px,1fr) minmax(80px,auto) 55px;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid #34445f;font-size:13px}
+.spb-legend-item:last-child{border:0}
+.spb-color{display:block;width:12px;height:12px;border-radius:4px;border:1px solid #ffffff55}
+.spb-name{color:#e0eafe;overflow-wrap:anywhere}
+.spb-legend-item strong{color:#f6fbff;white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
+.spb-share{color:#afc4e1;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.spb-note{font-size:12px;color:#afc4dc;margin:0;line-height:1.6}
+.spb-empty{border:1px dashed #536886;color:#e5efff;padding:18px;border-radius:10px}
+.category-inline{display:inline-flex;gap:6px;align-items:center;color:#cbdaf0;font-size:12px;font-weight:700}
+.category-inline select{max-width:210px;min-width:150px;color:#f4f7fe;border:1px solid #566986;background:#1e3048;border-radius:8px;padding:7px;font-size:12px}
+@media(max-width:850px){.spb-grid{grid-template-columns:1fr}.spb-visual svg{width:min(100%,255px)}}
+@media(max-width:520px){.spb-panel{padding:13px}.spb-head h3{font-size:18px}.spb-legend-item{grid-template-columns:12px minmax(0,1fr) auto 42px;gap:6px;font-size:11px}.spb-legend-item strong{font-size:11px}.spb-share{font-size:11px}.category-inline{flex-wrap:wrap}.category-inline select{min-width:130px;max-width:175px}}
+
 </style></head><body>
 <div id="authScreen" class="auth-wrap"><div class="auth-card"><h1>Household Budget</h1><h2>Private access</h2><p id="authNote" class="auth-note">Sign in to see your private budget. The website does not publish card balances or transactions.</p>
 <div id="loginFields"><form id="authForm" novalidate><label class="field">Email<input id="loginEmail" type="email" autocomplete="email" required></label><label class="field">Password<input id="loginPassword" type="password" autocomplete="current-password" minlength="12" required></label><button id="signin" class="primary" type="button">Sign in</button><button id="signup" type="button">Create household login</button></form></div>
@@ -1317,7 +1346,7 @@ function renderSpendingBreakdown(budget){
  html+='</select></label></div></div>';
  if(summary.total<=0)html+='<p class="spb-empty">No '+esc(label.toLowerCase())+' found for this period.</p>';
  else{
-  html+='<div class="spb-summary"><span>'+esc(label)+' · '+summary.entries+' entry'+(summary.entries===1?'':'ies')+'</span><strong>'+money(summary.total/100)+'</strong></div>';
+  html+='<div class="spb-summary"><span>'+esc(label)+' · '+summary.entries+' '+(summary.entries===1?'entry':'entries')+'</span><strong>'+money(summary.total/100)+'</strong></div>';
   html+='<div class="spb-grid"><div class="spb-visual">'+spendingPieSvg(summary.categories,summary.total)+'</div><div class="spb-legend">';
   for(const cat of summary.categories){
    html+='<div class="spb-legend-item"><span class="spb-color" style="background:'+spendingColor(cat.name)+'"></span><span class="spb-name">'+esc(cat.name)+'</span><strong>'+money(cat.amount/100)+'</strong><span class="spb-share">'+(cat.amount/summary.total*100).toFixed(1)+'%</span></div>';
