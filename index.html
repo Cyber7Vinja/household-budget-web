@@ -1230,6 +1230,116 @@ const sortByDueDate=(items,field)=>[...items].sort((a,b)=>{
  const right=validDate(b?.[field])?b[field]:'9999-12-31';
  return left.localeCompare(right)||String(a?.name||'').localeCompare(String(b?.name||''),undefined,{sensitivity:'base'})||String(a?.id||'').localeCompare(String(b?.id||''));
 });
+
+let spendingView='projected',spendingMonth='all';
+const spendingColors={
+ 'Uncategorized':'#94a3b8','Restaurants & Takeout':'#fb923c','Groceries':'#34d399',
+ 'Groceries reserved':'#0ea5a5','Housing & Rent':'#a78bfa','Utilities':'#38bdf8',
+ 'Phone & Internet':'#60a5fa','Insurance':'#fbbf24','Transportation':'#f472b6',
+ 'Gas & Fuel':'#fb7185','Subscriptions':'#c084fc','Shopping':'#e879f9',
+ 'Entertainment':'#818cf8','Health & Medical':'#22d3ee','Personal Care':'#f9a8d4',
+ 'Pets':'#a3e635','Childcare':'#fca5a5','Education':'#2dd4bf',
+ 'Travel':'#d8b4fe','Gifts & Holidays':'#fda4af','Taxes & Fees':'#fcd34d',
+ 'Credit Card Payments':'#b6a8f5','Other Debt Payments':'#a7b0bd',
+ 'Other':'#64748b','Other planned expenses':'#eab308'
+};
+const spendingColor=c=>spendingColors[c]||'#64748b';
+function spendingRows(budget,view){
+ const rows=[];
+ if(view==='recorded'){
+  for(const t of budget.transactions||[]){
+   if(!validDate(t.date)||!(Number(t.amount)>0))continue;
+   const fallback=t.kind==='debt'?'Other Debt Payments':'Uncategorized';
+   rows.push({date:t.date,amount:Math.round(num(t.amount)*100),category:expenseCategories.includes(t.category)?t.category:fallback});
+  }
+ }else{
+  const forecast=window.DecemberForecast.forecast(budget);
+  for(const e of forecast.events){
+   if(e.amount>=0)continue;
+   let category='Other planned expenses';
+   if(['bill','undated'].includes(e.kind)){
+    const bill=(budget.bills||[]).find(b=>b.id===e.source);
+    category=bill?categoryOfBill(bill):'Uncategorized';
+   }else if(['minimum','minimum-estimated'].includes(e.kind))category='Credit Card Payments';
+   else if(['minimum-other','minimum-other-estimated','extra'].includes(e.kind))category='Other Debt Payments';
+   else if(e.kind==='grocery')category='Groceries reserved';
+   else if(e.kind==='gas')category='Gas & Fuel';
+   else if(e.kind==='christmas')category='Gifts & Holidays';
+   else if(e.kind==='transaction'){
+    const t=(budget.transactions||[]).find(x=>x.id===e.source);
+    category=t?(expenseCategories.includes(t.category)?t.category:t.kind==='debt'?'Other Debt Payments':'Uncategorized'):'Uncategorized';
+   }
+   rows.push({date:e.date,amount:-e.amount,category});
+  }
+ }
+ return rows;
+}
+function spendingSummary(budget,view,month){
+ const source=spendingRows(budget,view);
+ const months=[...new Set(source.map(r=>r.date.slice(0,7)))].sort();
+ const period=month==='all'||months.includes(month)?month:'all';
+ const filtered=source.filter(r=>period==='all'||r.date.startsWith(period));
+ const groups=new Map();
+ for(const item of filtered)groups.set(item.category,(groups.get(item.category)||0)+item.amount);
+ const categories=[...groups].map(([name,amount])=>({name,amount})).sort((a,b)=>b.amount-a.amount||a.name.localeCompare(b.name));
+ return {months,period,categories,total:categories.reduce((sum,r)=>sum+r.amount,0),entries:filtered.length};
+}
+function spendingPieSvg(categories,total){
+ const cx=130,cy=130,r=101;
+ let angle=-Math.PI/2;
+ const label='Spending breakdown: '+categories.map(v=>v.name+' '+(v.amount/total*100).toFixed(1)+' percent').join(', ');
+ let result='<svg viewBox="0 0 260 260" role="img" aria-label="'+esc(label)+'"><title>'+esc('Spending pie chart. '+label)+'</title>';
+ for(const entry of categories){
+  const sweep=entry.amount/total*Math.PI*2,color=spendingColor(entry.name);
+  const title=esc(entry.name+' '+money(entry.amount/100)+' ('+(entry.amount/total*100).toFixed(1)+'%)');
+  if(sweep>=2*Math.PI-0.000001)result+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+color+'"><title>'+title+'</title></circle>';
+  else{
+   const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
+   const x2=cx+r*Math.cos(angle+sweep),y2=cy+r*Math.sin(angle+sweep);
+   result+='<path d="M '+cx+' '+cy+' L '+x1.toFixed(3)+' '+y1.toFixed(3)+' A '+r+' '+r+' 0 '+(sweep>Math.PI?1:0)+' 1 '+x2.toFixed(3)+' '+y2.toFixed(3)+' Z" fill="'+color+'" stroke="#121d2b" stroke-width="1.5"><title>'+title+'</title></path>';
+  }
+  angle+=sweep;
+ }
+ return result+'</svg>';
+}
+function renderSpendingBreakdown(budget){
+ const summary=spendingSummary(budget,spendingView,spendingMonth);
+ spendingMonth=summary.period;
+ const label=spendingView==='recorded'?'Recorded transactions':'Projected cash outflows';
+ let html='<section id="spendingBreakdown" class="spb-panel" aria-label="Spending breakdown"><div class="spb-head"><div><h3>Where your money goes</h3><p>See your spending by category. Label your charges in the Bills and Transactions tabs.</p></div><div class="spb-controls">';
+ html+='<label>Show <select id="spbMode" aria-label="Spending chart type"><option value="projected"'+(spendingView==='projected'?' selected':'')+'>Projected money out</option><option value="recorded"'+(spendingView==='recorded'?' selected':'')+'>Recorded transactions</option></select></label>';
+ html+='<label>Period <select id="spbMonth" aria-label="Spending chart period"><option value="all"'+(summary.period==='all'?' selected':'')+'>'+(spendingView==='projected'?'Entire Dashboard period':'All recorded dates')+'</option>';
+ for(const m of summary.months){
+  const [year,month]=m.split('-').map(Number);
+  const title=new Date(Date.UTC(year,month-1,1)).toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'});
+  html+='<option value="'+esc(m)+'"'+(summary.period===m?' selected':'')+'>'+esc(title)+'</option>';
+ }
+ html+='</select></label></div></div>';
+ if(summary.total<=0)html+='<p class="spb-empty">No '+esc(label.toLowerCase())+' found for this period.</p>';
+ else{
+  html+='<div class="spb-summary"><span>'+esc(label)+' · '+summary.entries+' entry'+(summary.entries===1?'':'ies')+'</span><strong>'+money(summary.total/100)+'</strong></div>';
+  html+='<div class="spb-grid"><div class="spb-visual">'+spendingPieSvg(summary.categories,summary.total)+'</div><div class="spb-legend">';
+  for(const cat of summary.categories){
+   html+='<div class="spb-legend-item"><span class="spb-color" style="background:'+spendingColor(cat.name)+'"></span><span class="spb-name">'+esc(cat.name)+'</span><strong>'+money(cat.amount/100)+'</strong><span class="spb-share">'+(cat.amount/summary.total*100).toFixed(1)+'%</span></div>';
+  }
+  html+='</div></div>';
+ }
+ html+='<p class="spb-note">'+(spendingView==='projected'
+ ?'Projected cash outflows match the dated Dashboard spending: bills, required debt payments, recorded charges and the full grocery reserve. Credit-card payments are money applied to existing balances, not new shopping. Grocery purchases entered separately may overlap the reserved grocery amount. Gas and Christmas appear only once an estimate is entered.'
+ :'Recorded transactions include charges you entered and payments automatically recorded as paid. Previously entered charges without a category appear as Uncategorized. This view excludes future unpaid bills and planned grocery reserves.')+'</p></section>';
+ return html;
+}
+function bindSpendingBreakdown(){
+ const root=document.getElementById('spendingBreakdown');if(!root)return;
+ for(const id of ['spbMode','spbMonth']){
+  root.querySelector('#'+id).addEventListener('change',event=>{
+   if(id==='spbMode'){spendingView=event.target.value==='recorded'?'recorded':'projected';spendingMonth='all';}
+   else spendingMonth=event.target.value;
+   root.outerHTML=renderSpendingBreakdown(state);bindSpendingBreakdown();
+  });
+ }
+}
+
 function paycheckForm(){return `<form class="form-grid" data-kind="paycheck" novalidate>
 ${select('Household member','member',state.people.map(p=>[p,p]))}
 <label class="field">Net paycheck amount ($)<input name="amount" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 1,800.00" required></label>
@@ -1316,7 +1426,7 @@ function render(){const confirm=$('#confirmation');confirm.innerHTML=pendingActi
  $('#stats').innerHTML=['Dashboard','Forecast','Debt Payoff'].includes(tab)?'':cards.map(([name,value])=>`<div class="card"><small>${esc(name)}</small><strong class="${value<0?'bad':''}">${money(value)}</strong>${name.startsWith('Lowest projected household cash')?'<small>Lowest estimated amount after dated payments; not a verified bank balance. Groceries, gas and undated bills may be missing.</small>':''}</div>`).join('');
  $('#tabs').innerHTML=tabs.map(t=>`<button data-tab="${esc(t)}" class="${t===tab?'active':''}">${esc(t)}</button>`).join('');
  let html=`<h2>${esc(tab)}</h2>`;
- if(tab==='Dashboard'){html+=window.DecemberForecast.dashboard(state)}
+ if(tab==='Dashboard'){html+=renderSpendingBreakdown(state)+window.DecemberForecast.dashboard(state)}
 if(tab==='Forecast'){html+=window.ForecastStudio.render(state)}
 if(tab==='Paychecks'){html+='<p class="hint">Add or edit paychecks here. To model the next three months without changing saved income, open Forecast.</p>';html+=editingPanel();html+=paycheckForm();if(paycheckNotice)html+=`<div class="notice ${paycheckNotice.error?'error':''}" role="status" aria-live="polite">${esc(paycheckNotice.text)}</div>`;html+='<p class="hint">A confirmation appears under the form after adding. Your paychecks are saved to the private household database and can be shared with authorized members.</p>';const all=[...state.paychecks].sort((a,b)=>String(a?.date||'').localeCompare(String(b?.date||'')));html+=all.map(p=>row(p.member,`${pretty(p.date)} · ${esc(p.frequency||'One-time')}${p.parent?' · Generated':''}`,p.amount,`<button class="compact" data-edit-paycheck="${esc(p.id)}">Edit</button><button class="compact danger-btn" data-remove-pay="${esc(p.id)}">Remove</button>`)).join('')||'<div class="empty">No paychecks yet.</div>'}
 if(tab==='Bills'){html+='<p class="muted">Choose Every 3 months for quarterly bills like trash. Enter the next actual due date; the bill will repeat three months later. Bills without dates cannot be scheduled accurately. Imported Credit Cards budget lines are reference-only, not second debt minimums. <strong>Sorted by due date, earliest first; undated bills last.</strong></p>';html+=editingPanel();html+=frm('bill',field('Bill name','name','text','placeholder="Rent, electricity, internet..."')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Due date','date','date')+select('Repeat','frequency',billFreqOptions())+categoryField('Spending category'),'Add bill');html+=sortByDueDate(state.bills,'date').map(b=>row(b.name,`${b.date?pretty(b.date):'<span class="warn">Due date needed</span>'} · ${b.paid?'<span class="ok">Paid</span>':'Unpaid'} · ${esc(b.frequency||'One-time')}${b.budgetOnly?' · Budget allocation, not a second debt payment':''}`,b.amount,`${inlineCategoryPicker(b,'bill')}<button class="compact" data-edit-bill="${esc(b.id)}">Edit bill</button>${b.budgetOnly?'<span class="pill">Reference only</span>':`<label class="inline-label"><input type="checkbox" data-paid-bill="${esc(b.id)}" ${b.paid?'checked':''}>Paid</label>${assignControl(b)}`}<button class="compact danger-btn" data-remove-bill="${esc(b.id)}">Remove</button>`)).join('')||'<div class="empty">No bills yet.</div>'}
@@ -1324,7 +1434,7 @@ if(tab==='Debt & Credit'){html+='<p class="muted">Track credit cards and loans h
 if(tab==='Debt Payoff'){html+=window.DebtPlanner.render(state)}
 if(tab==='Transactions'){html+='<p class="hint">Choose a category for each charge so the spending pie chart can group restaurant meals, groceries, shopping and more. Older charges start as Uncategorized until you label them.</p>';html+=frm('expense',field('Expense description','name')+field('Amount ($)','amount','number','min="0.01" step="0.01"')+field('Transaction date','date','date')+categoryField('Spending category'),'Add expense');html+=[...state.transactions].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).map(x=>row(x.name,`${pretty(x.date)} · ${esc(x.kind)}`,x.amount,`${inlineCategoryPicker(x,'transaction')}<button class="compact danger-btn" data-remove-transaction="${esc(x.id)}">Remove</button>`)).join('')||'<div class="empty">No transactions recorded.</div>'}
 if(tab==='Settings'){html+='<p class="muted">Customize members and your starting available cash. These settings affect the combined household plan.</p>';html+=frm('opening',`<label class="field">Starting household cash ($)<input type="number" name="opening" min="0" step="0.01" value="${num(state.opening)}" required></label>`,'Save cash balance');html+=frm('member',field('New household member','name','text','maxlength="60"'),'Add household member');html+='<h3>Household members</h3>'+state.people.map(p=>row(p,'Available for paycheck assignment',0,`<button class="compact danger-btn" data-remove-member="${esc(p)}">Remove</button>`)).join('');html+='<h3>Website access</h3><p class="hint">Only approved signed-in people can access this household budget. Generate a one-time invitation code for another household member.</p><div class="bar"><button type="button" id="createInvite">Create 7-day invite</button></div><p class="hint">Invitation codes are sensitive. Share privately with the intended person; each code works once.</p><div id="inviteResult"></div>'}
-$('#view').innerHTML=html;if(tab==='Debt Payoff')window.DebtPlanner.bind(state);if(tab==='Dashboard')window.DecemberForecast.bind(state,weekly=>{const amount=num(weekly);if(state.groceryWeekly!==amount){state.groceryWeekly=amount;save();}});if(tab==='Forecast')window.ForecastStudio.bind(state,render)}
+$('#view').innerHTML=html;if(tab==='Debt Payoff')window.DebtPlanner.bind(state);if(tab==='Dashboard'){window.DecemberForecast.bind(state,weekly=>{const amount=num(weekly);if(state.groceryWeekly!==amount){state.groceryWeekly=amount;save();}});bindSpendingBreakdown();}if(tab==='Forecast')window.ForecastStudio.bind(state,render)}
 function pay(entry,kind,checked){if(Boolean(entry.paid)===checked)return false;const amount=num(kind==='minimum'?entry.minimum:entry.amount);const debt=kind==='minimum'?entry:kind==='extra'?state.debts.find(d=>d.id===entry.debt):null;if(checked){if(debt&&debt.balance<amount){message('Payment exceeds the remaining debt balance.',true);return false}if(debt)debt.balance=num(debt.balance-amount);entry.paid=true;state.transactions.unshift({id:makeId(),source:entry.id,name:kind==='bill'?entry.name:(debt?.name||'Debt')+' payment',amount,date:today(),kind:kind==='bill'?'expense':'debt',category:kind==='bill'?categoryOfBill(entry):(debt?.type==='Credit Card'?'Credit Card Payments':'Other Debt Payments')})}else{const tx=state.transactions.find(t=>t.source===entry.id);if(tx){if(debt)debt.balance=num(debt.balance+tx.amount);state.transactions=state.transactions.filter(t=>t.id!==tx.id)}entry.paid=false}return true}
 function submit(e){const form=e.target.closest('form[data-kind]');if(!form)return;e.preventDefault();const kind=form.dataset.kind,v=Object.fromEntries(new FormData(form).entries()),amount=kind==='paycheck'||kind==='edit-paycheck'?parsePayAmount(v.amount):Number(v.amount);
  if(kind==='paycheck'||kind==='edit-paycheck'){
